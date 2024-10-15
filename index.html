@@ -1,11 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <!-- Head section with metadata and styles -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Enhanced Iris Mapper</title>
     <style>
-        /* Body and container styles */
+        /* Styles for the body and main container */
         body {
             font-family: Arial, sans-serif;
             text-align: center;
@@ -14,7 +15,7 @@
             margin: 0;
         }
 
-        /* Expanding the mapper container for better SVG visibility */
+        /* Mapper container to display images and SVGs */
         #mapper-container {
             width: 1000px;
             height: 800px;
@@ -26,7 +27,35 @@
             background-color: white;
         }
 
-        #image-container, #svg-container {
+        /* Dual eye view container */
+        #dual-mapper-container {
+            display: none; /* Hidden by default */
+            width: 1000px;
+            height: 800px;
+            margin: 20px auto;
+            position: relative;
+        }
+
+        #dual-mapper-container.active {
+            display: flex;
+            justify-content: space-between;
+            position: relative;
+        }
+
+        /* Individual eye containers for dual view */
+        .eye-container {
+            width: 48%;
+            height: 100%;
+            position: relative;
+            border: 2px solid #333;
+            overflow: hidden;
+            background-color: white;
+        }
+
+        /* Positioning for image and SVG containers */
+        #image-container, #svg-container,
+        #left-image-container, #left-svg-container,
+        #right-image-container, #right-svg-container {
             position: absolute;
             top: 0;
             left: 0;
@@ -34,14 +63,29 @@
             height: 100%;
         }
 
-        #image-container img {
+        /* Styles for the uploaded image */
+        #image-container img,
+        #left-image-container img,
+        #right-image-container img {
             max-width: none;
             max-height: none;
             pointer-events: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
         }
 
-        #svg-container {
+        /* Hide the SVG container when not in use */
+        #svg-container,
+        #left-svg-container,
+        #right-svg-container {
             pointer-events: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
         }
 
         /* Floating menu styles */
@@ -59,15 +103,18 @@
             overflow-y: auto;
         }
 
+        /* Hide the menu when not needed */
         #floating-menu.hidden {
             transform: translateX(-100%);
         }
 
+        /* Heading style for the menu */
         #floating-menu h3 {
             margin-bottom: 15px;
         }
 
-        button, input[type="file"], select, input[type="color"], input[type="range"] {
+        /* Styles for buttons and inputs in the menu */
+        button, input[type="file"], select, input[type="color"], input[type="range"], input[type="text"], textarea {
             display: block;
             margin: 10px 0;
             padding: 8px 15px;
@@ -81,11 +128,12 @@
             box-sizing: border-box;
         }
 
+        /* Change button color on hover */
         button:hover {
             background-color: #45a049;
         }
 
-        /* Menu toggle button */
+        /* Menu toggle button styles */
         #menu-toggle {
             position: fixed;
             top: 50%;
@@ -105,11 +153,12 @@
             height: auto;
         }
 
+        /* Adjust toggle button when menu is hidden */
         #menu-toggle.hidden {
             left: 0;
         }
 
-        /* Directional buttons layout */
+        /* Layout for directional buttons */
         .direction-buttons {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -117,11 +166,12 @@
             justify-content: center;
         }
 
+        /* Directional buttons styles */
         .direction-buttons button {
             font-size: 18px;
         }
 
-        /* Accordion Styles */
+        /* Accordion styles for client sections */
         .accordion {
             background-color: #eee;
             color: #444;
@@ -135,10 +185,12 @@
             margin-bottom: 5px;
         }
 
+        /* Change background on hover */
         .accordion:hover {
             background-color: #ddd;
         }
 
+        /* Panel styles for the accordion */
         .panel {
             padding: 0 10px;
             background-color: white;
@@ -146,51 +198,79 @@
             overflow: hidden;
         }
 
-        .panel img {
-            max-width: 100%;
-            margin-bottom: 10px;
-        }
-
+        /* Client panel styles */
         .client-panel {
             padding: 10px 0;
         }
 
-        .client-header {
-            background-color: #4CAF50;
-            color: white;
-            padding: 10px;
-            font-weight: bold;
-            border-radius: 5px;
+        /* Styles for image thumbnails in client gallery */
+        .thumbnail {
+            width: 100px;
+            height: 100px;
+            object-fit: cover;
+            margin: 5px;
             cursor: pointer;
         }
 
-        .client-header:hover {
+        /* Gallery container */
+        .gallery {
+            display: flex;
+            flex-wrap: wrap;
+        }
+
+        /* Back to Single Eye View button styles */
+        #backToSingleViewButton {
+            display: none; /* Hidden by default */
+            position: absolute; /* Changed to absolute positioning */
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1001;
+            background-color: #4CAF50;
+            color: white;
+            padding: 8px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        #backToSingleViewButton:hover {
             background-color: #45a049;
         }
 
-        .client-content {
-            display: none;
-            margin-top: 10px;
-            background-color: #f0f0f0;
-            padding: 10px;
-            border-radius: 5px;
+        /* Ensure the button is within the dual-mapper-container */
+        #dual-mapper-container {
+            position: relative;
+        }
+
+        /* Adjust the image containers in dual view */
+        .eye-container {
+            position: relative;
+        }
+
+        /* Prevent images from overlapping the button */
+        #dual-mapper-container .eye-container {
+            margin-top: 50px; /* Adjust as needed to create space for the button */
         }
     </style>
 </head>
 <body>
+    <!-- Main title of the application -->
     <h1>Enhanced Iris Mapper</h1>
-    
+
     <!-- Floating menu that contains all the tools -->
     <div id="floating-menu">
         <h3>Tools</h3>
 
-        <!-- Image Upload -->
+        <!-- Image Upload Section -->
         <label for="imageUpload">Upload Eye Image:</label>
         <input type="file" id="imageUpload" accept="image/*">
 
-        <!-- SVG Selection -->
+        <!-- SVG Selection Section -->
         <label for="svgSelector">Select Iris Map:</label>
         <select id="svgSelector">
+            <!-- Options for different iris maps -->
             <option value="Angerer_DE_01">Angerer_DE_01</option>
             <option value="Bourdil_FR_01">Bourdil_FR_01</option>
             <option value="IrisLAB_EN_02">IrisLAB_EN_02</option>
@@ -199,7 +279,14 @@
             <option value="Jensen_EN_01">Jensen_EN_01</option>
             <option value="Jensen_FR_01">Jensen_FR_01</option>
             <option value="Roux_FR_01">Roux_FR_01</option>
+            <!-- Added option for custom SVG -->
+            <option value="custom">Custom SVG</option>
         </select>
+
+        <!-- Custom SVG Upload Section -->
+        <label for="customSvgUpload">Upload Custom SVG Map:</label>
+        <input type="file" id="customSvgUpload" accept=".svg">
+        <button id="loadCustomSvgButton">Load Custom SVG</button>
 
         <!-- Eye Side Selection -->
         <label for="eyeSideSelector">Select Eye Side:</label>
@@ -208,7 +295,7 @@
             <option value="R">Right Eye</option>
         </select>
 
-        <!-- Transform Tools -->
+        <!-- Transform Tools Section -->
         <label>Transform Tools</label>
         <button id="zoomIn">🔍+ Zoom In</button>
         <button id="zoomOut">🔍- Zoom Out</button>
@@ -216,7 +303,7 @@
         <button id="rotateRight">↻ Rotate Right</button>
         <button id="resetButton">↺ Reset</button>
 
-        <!-- Directional Movement -->
+        <!-- Directional Movement Buttons -->
         <div class="direction-buttons">
             <button id="moveLeft">←</button>
             <button id="moveUp">↑</button>
@@ -226,7 +313,7 @@
             <div></div>
         </div>
 
-        <!-- SVG Tools -->
+        <!-- SVG Tools Section -->
         <label for="opacitySlider">SVG Transparency</label>
         <input type="range" id="opacitySlider" min="0" max="1" step="0.01" value="0.7">
 
@@ -235,31 +322,60 @@
 
         <button id="toggleMap">Toggle SVG Map</button>
 
-        <!-- Save Image -->
+        <!-- Dual Eye View Button -->
+        <button id="dualViewButton">👀 Dual Eye View</button>
+
+        <!-- Save Image Button -->
         <button id="saveImage">💾 Save Image</button>
 
-        <!-- Accordion for Clients -->
+        <!-- Accordion for Clients Section -->
         <h3>Clients</h3>
         <input type="text" id="newClientName" placeholder="New Client Name">
         <button id="addClient">Add Client</button>
 
+        <!-- Container for client accordions -->
         <div id="clientAccordion"></div>
     </div>
 
-    <!-- Menu toggle button -->
+    <!-- Menu toggle button to show/hide the floating menu -->
     <button id="menu-toggle">◀</button>
 
-    <!-- Mapper Container -->
+    <!-- Single eye mapper container -->
     <div id="mapper-container">
         <div id="image-container"></div>
         <div id="svg-container"></div>
     </div>
 
+    <!-- Dual eye mapper container -->
+    <div id="dual-mapper-container">
+        <!-- Button to return to single eye view -->
+        <button id="backToSingleViewButton">🔙 Back to Single Eye View</button>
+        <!-- Left eye container -->
+        <div class="eye-container" id="left-eye-container">
+            <div id="left-image-container"></div>
+            <div id="left-svg-container"></div>
+        </div>
+        <!-- Right eye container -->
+        <div class="eye-container" id="right-eye-container">
+            <div id="right-image-container"></div>
+            <div id="right-svg-container"></div>
+        </div>
+    </div>
+
+    <!-- JavaScript to add functionality to the application -->
+    <!-- Include html2canvas library -->
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <!-- Include DOMPurify library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/2.4.3/purify.min.js"></script>
     <script>
+        // Wait until the page is fully loaded
         document.addEventListener('DOMContentLoaded', function() {
+            // Get references to HTML elements we'll interact with
             const imageContainer = document.getElementById('image-container');
             const svgContainer = document.getElementById('svg-container');
             const svgSelector = document.getElementById('svgSelector');
+            const customSvgUpload = document.getElementById('customSvgUpload');
+            const loadCustomSvgButton = document.getElementById('loadCustomSvgButton');
             const eyeSideSelector = document.getElementById('eyeSideSelector');
             const mapColor = document.getElementById('mapColor');
             const opacitySlider = document.getElementById('opacitySlider');
@@ -267,12 +383,47 @@
             const floatingMenu = document.getElementById('floating-menu');
             const newClientName = document.getElementById('newClientName');
             const clientAccordion = document.getElementById('clientAccordion');
+            const imageUpload = document.getElementById('imageUpload');
+            const addClientButton = document.getElementById('addClient');
+            const dualViewButton = document.getElementById('dualViewButton');
+            const backToSingleViewButton = document.getElementById('backToSingleViewButton');
+            const mapperContainer = document.getElementById('mapper-container');
+            const dualMapperContainer = document.getElementById('dual-mapper-container');
+            const leftImageContainer = document.getElementById('left-image-container');
+            const rightImageContainer = document.getElementById('right-image-container');
+            const leftSvgContainer = document.getElementById('left-svg-container');
+            const rightSvgContainer = document.getElementById('right-svg-container');
             let clients = {};  // Object to store clients and their images
-            let img;
-            let rotation = 0;
-            let scale = 1;
+            let currentEye = 'L'; // 'L' for left, 'R' for right
+            let images = {
+                'L': null, // Left eye image data URL
+                'R': null  // Right eye image data URL
+            };
+            let imageSettings = {
+                'L': { rotation: 0, scale: 1, translateX: 0, translateY: 0 },
+                'R': { rotation: 0, scale: 1, translateX: 0, translateY: 0 }
+            };
+            let svgSettings = {
+                'L': { svgContent: '', mapColor: '#000000', opacity: 0.7 },
+                'R': { svgContent: '', mapColor: '#000000', opacity: 0.7 }
+            };
+            let imgElements = {
+                'L': null, // Left eye image element
+                'R': null  // Right eye image element
+            };
             let isDragging = false;
-            let startX, startY, translateX = 0, translateY = 0;
+            let startX, startY;
+            let customSvgContent = '';
+
+            // Function to update the current eye variable and load the corresponding image and settings
+            function switchEye(eye) {
+                currentEye = eye;
+                eyeSideSelector.value = eye;
+                loadSVG(svgSelector.value);
+                loadImageForCurrentEye();
+                updateImageTransform();
+                applySvgSettings();
+            }
 
             // Toggle menu visibility
             menuToggle.addEventListener('click', function() {
@@ -281,21 +432,52 @@
                 menuToggle.textContent = floatingMenu.classList.contains('hidden') ? '▶' : '◀';
             });
 
-            // Load SVG based on selection
+            // Load SVG based on selection and current eye
             function loadSVG(svgFile) {
                 const eyeSide = eyeSideSelector.value;
+                if (svgFile === 'custom') {
+                    if (customSvgContent) {
+                        svgContainer.innerHTML = customSvgContent;
+                        svgSettings[currentEye].svgContent = customSvgContent;
+                        setupSvgElement(svgContainer);
+                    } else {
+                        alert('Please upload a custom SVG first.');
+                        // Reset selector to default if needed
+                        svgSelector.value = 'Angerer_DE_01';
+                        loadSVG(svgSelector.value);
+                    }
+                    return;
+                }
                 fetch(`grids/${svgFile}_${eyeSide}.svg`)
-                    .then(response => response.text())
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('SVG file not found');
+                        }
+                        return response.text();
+                    })
                     .then(svgContent => {
                         svgContainer.innerHTML = svgContent;
-                        const svgElement = svgContainer.querySelector('svg');
-                        svgElement.setAttribute('width', '100%');
-                        svgElement.setAttribute('height', '100%');
-                        svgElement.style.pointerEvents = 'none';
-                        svgContainer.style.opacity = opacitySlider.value;
-                        changeMapColor(mapColor.value);
+                        svgSettings[currentEye].svgContent = svgContent;
+                        setupSvgElement(svgContainer);
                     })
-                    .catch(error => console.error('Error loading SVG:', error));
+                    .catch(error => {
+                        console.error('Error loading SVG:', error);
+                        svgContainer.innerHTML = ''; // Clear SVG container if error
+                    });
+            }
+
+            // Function to setup SVG element
+            function setupSvgElement(container) {
+                const svgElement = container.querySelector('svg');
+                if (svgElement) {
+                    svgElement.setAttribute('width', '100%');
+                    svgElement.setAttribute('height', '100%');
+                    svgElement.style.pointerEvents = 'none';
+                    container.style.opacity = opacitySlider.value;
+                    changeMapColor(mapColor.value);
+                    svgSettings[currentEye].mapColor = mapColor.value;
+                    svgSettings[currentEye].opacity = opacitySlider.value;
+                }
             }
 
             // Initial SVG load
@@ -303,20 +485,53 @@
 
             // Change SVG map on selection
             svgSelector.addEventListener('change', function() {
-                loadSVG(this.value);
+                if (this.value === 'custom') {
+                    if (customSvgContent) {
+                        svgContainer.innerHTML = customSvgContent;
+                        svgSettings[currentEye].svgContent = customSvgContent;
+                        setupSvgElement(svgContainer);
+                    } else {
+                        alert('Please upload a custom SVG first.');
+                        // Reset selector to a default value
+                        this.value = 'Angerer_DE_01';
+                        loadSVG(this.value);
+                    }
+                } else {
+                    loadSVG(this.value);
+                }
+            });
+
+            // Load custom SVG
+            loadCustomSvgButton.addEventListener('click', function() {
+                if (customSvgUpload.files[0]) {
+                    const file = customSvgUpload.files[0];
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        let sanitizedSvg = DOMPurify.sanitize(e.target.result, { USE_PROFILES: { svg: true } });
+                        customSvgContent = sanitizedSvg;
+                        svgSelector.value = 'custom';
+                        svgContainer.innerHTML = customSvgContent;
+                        svgSettings[currentEye].svgContent = customSvgContent;
+                        setupSvgElement(svgContainer);
+                    };
+                    reader.readAsText(file);
+                } else {
+                    alert('Please select an SVG file to upload.');
+                }
             });
 
             // Change SVG map on eye side change
             eyeSideSelector.addEventListener('change', function() {
-                loadSVG(svgSelector.value);
+                switchEye(this.value);
             });
 
             // Change SVG path colors
             function changeMapColor(color) {
-                const svgPaths = document.querySelectorAll('#svg-container svg path');
+                const svgPaths = svgContainer.querySelectorAll('svg path');
                 svgPaths.forEach(path => {
                     path.setAttribute('stroke', color);
                 });
+                svgSettings[currentEye].mapColor = color;
             }
 
             // Change color of SVG paths
@@ -327,18 +542,21 @@
             // Adjust the opacity of the SVG overlay
             opacitySlider.addEventListener('input', function() {
                 svgContainer.style.opacity = this.value;
+                svgSettings[currentEye].opacity = this.value;
             });
 
             // Image upload handling
-            document.getElementById('imageUpload').addEventListener('change', function(e) {
+            imageUpload.addEventListener('change', function(e) {
                 const file = e.target.files[0];
                 if (file) {
                     const reader = new FileReader();
                     reader.onload = function(event) {
-                        img = new Image();
+                        const img = new Image();
+                        img.crossOrigin = 'anonymous'; // Ensure cross-origin images can be used
                         img.onload = function() {
-                            imageContainer.innerHTML = '';
-                            imageContainer.appendChild(img);
+                            images[currentEye] = event.target.result;
+                            imgElements[currentEye] = img;
+                            loadImageForCurrentEye();
                             resetImagePosition();
                             svgContainer.style.display = 'block';
                         };
@@ -348,53 +566,108 @@
                 }
             });
 
+            // Function to load image for the current eye
+            function loadImageForCurrentEye() {
+                imageContainer.innerHTML = '';
+                if (imgElements[currentEye]) {
+                    const img = imgElements[currentEye];
+                    img.style.maxWidth = '100%';
+                    img.style.maxHeight = '100%';
+                    img.style.width = 'auto';
+                    img.style.height = 'auto';
+                    img.style.position = 'absolute';
+                    img.style.top = '50%';
+                    img.style.left = '50%';
+                    img.style.transform = 'translate(-50%, -50%)';
+                    imageContainer.appendChild(img);
+                    fitImageToContainer();
+                    updateImageTransform();
+                }
+            }
+
+            // Add a new function to fit the image to the container
+            function fitImageToContainer() {
+                const img = imgElements[currentEye];
+                const container = imageContainer;
+                if (img && container) {
+                    const containerAspect = container.offsetWidth / container.offsetHeight;
+                    const imageAspect = img.naturalWidth / img.naturalHeight;
+
+                    if (imageAspect > containerAspect) {
+                        // Image is wider than container
+                        img.style.width = '100%';
+                        img.style.height = 'auto';
+                    } else {
+                        // Image is taller than container
+                        img.style.width = 'auto';
+                        img.style.height = '100%';
+                    }
+
+                    // Reset scale to 1 after fitting
+                    imageSettings[currentEye].scale = 1;
+                }
+            }
+
             // Update image transformation
             function updateImageTransform() {
+                const img = imgElements[currentEye];
                 if (img) {
-                    img.style.transform = `translate(${translateX}px, ${translateY}px) rotate(${rotation}deg) scale(${scale})`;
+                    const settings = imageSettings[currentEye];
+                    img.style.transform = `translate(-50%, -50%) translate(${settings.translateX}px, ${settings.translateY}px) rotate(${settings.rotation}deg) scale(${settings.scale})`;
+                }
+            }
+
+            // Apply SVG settings
+            function applySvgSettings() {
+                const svgContent = svgSettings[currentEye].svgContent;
+                if (svgContent) {
+                    svgContainer.innerHTML = svgContent;
+                    setupSvgElement(svgContainer);
+                    svgContainer.style.opacity = svgSettings[currentEye].opacity;
+                    mapColor.value = svgSettings[currentEye].mapColor;
                 }
             }
 
             // Rotate and zoom functions
             document.getElementById('rotateLeft').addEventListener('click', () => {
-                rotation -= 5;
+                imageSettings[currentEye].rotation -= 5;
                 updateImageTransform();
             });
 
             document.getElementById('rotateRight').addEventListener('click', () => {
-                rotation += 5;
+                imageSettings[currentEye].rotation += 5;
                 updateImageTransform();
             });
 
             document.getElementById('zoomIn').addEventListener('click', () => {
-                scale *= 1.1;
+                imageSettings[currentEye].scale *= 1.1;
                 updateImageTransform();
             });
 
             document.getElementById('zoomOut').addEventListener('click', () => {
-                scale /= 1.1;
+                imageSettings[currentEye].scale /= 1.1;
                 updateImageTransform();
             });
 
             // Mouse wheel zoom handling
-            document.getElementById('mapper-container').addEventListener('wheel', function(e) {
+            mapperContainer.addEventListener('wheel', function(e) {
                 e.preventDefault();
                 const delta = e.deltaY * -0.001;
-                scale *= 1 + delta;
+                imageSettings[currentEye].scale *= 1 + delta;
                 updateImageTransform();
             });
 
             // Drag the image using the mouse
-            document.getElementById('mapper-container').addEventListener('mousedown', function(e) {
+            mapperContainer.addEventListener('mousedown', function(e) {
                 isDragging = true;
-                startX = e.clientX - translateX;
-                startY = e.clientY - translateY;
+                startX = e.clientX - imageSettings[currentEye].translateX;
+                startY = e.clientY - imageSettings[currentEye].translateY;
             });
 
             document.addEventListener('mousemove', function(e) {
-                if (isDragging && img) {
-                    translateX = e.clientX - startX;
-                    translateY = e.clientY - startY;
+                if (isDragging && imgElements[currentEye]) {
+                    imageSettings[currentEye].translateX = e.clientX - startX;
+                    imageSettings[currentEye].translateY = e.clientY - startY;
                     updateImageTransform();
                 }
             });
@@ -405,43 +678,56 @@
 
             // Directional move buttons
             document.getElementById('moveUp').addEventListener('click', () => {
-                translateY += 10;
+                imageSettings[currentEye].translateY += 10;
                 updateImageTransform();
             });
 
             document.getElementById('moveDown').addEventListener('click', () => {
-                translateY -= 10;
+                imageSettings[currentEye].translateY -= 10;
                 updateImageTransform();
             });
 
             document.getElementById('moveLeft').addEventListener('click', () => {
-                translateX += 10;
+                imageSettings[currentEye].translateX += 10;
                 updateImageTransform();
             });
 
             document.getElementById('moveRight').addEventListener('click', () => {
-                translateX -= 10;
+                imageSettings[currentEye].translateX -= 10;
                 updateImageTransform();
             });
 
             // Reset image position and transformations
             function resetImagePosition() {
-                rotation = 0;
-                scale = 1;
-                translateX = 0;
-                translateY = 0;
+                imageSettings[currentEye] = { rotation: 0, scale: 1, translateX: 0, translateY: 0 };
+                fitImageToContainer();
                 updateImageTransform();
             }
 
             document.getElementById('resetButton').addEventListener('click', resetImagePosition);
 
+            // Add a resize event listener to handle window resizing
+            window.addEventListener('resize', function() {
+                fitImageToContainer();
+                updateImageTransform();
+            });
+
             // Save the image with SVG overlay
             document.getElementById('saveImage').addEventListener('click', () => {
-                html2canvas(document.getElementById('mapper-container')).then(canvas => {
+                // Ensure all images are loaded and transformations are applied
+                html2canvas(mapperContainer, {
+                    useCORS: true,
+                    allowTaint: false,
+                    backgroundColor: null,
+                    logging: false,
+                    scale: 2, // Increase scale for higher resolution
+                }).then(canvas => {
                     const link = document.createElement('a');
                     link.download = 'iris_map.png';
                     link.href = canvas.toDataURL();
                     link.click();
+                }).catch(error => {
+                    console.error('Error saving image:', error);
                 });
             });
 
@@ -451,58 +737,282 @@
             });
 
             // Function to add a new client to the accordion
-            document.getElementById('addClient').addEventListener('click', () => {
+            addClientButton.addEventListener('click', () => {
                 const clientName = newClientName.value.trim();
-                if (clientName && !clients[clientName]) {
-                    const accordion = document.createElement('button');
+                if (clientName) {
+                    if (!clients[clientName]) {
+                        clients[clientName] = { images: [], notes: '' };
+                    }
+                    // Save current images to the client's gallery
+                    if (images['L']) {
+                        clients[clientName].images.push({
+                            eye: 'L',
+                            src: images['L'],
+                            settings: { ...imageSettings['L'] },
+                            svgSettings: { ...svgSettings['L'] }
+                        });
+                    }
+                    if (images['R']) {
+                        clients[clientName].images.push({
+                            eye: 'R',
+                            src: images['R'],
+                            settings: { ...imageSettings['R'] },
+                            svgSettings: { ...svgSettings['R'] }
+                        });
+                    }
+                    updateClientAccordion(clientName);
+                    // Clear the input field after adding the client
+                    newClientName.value = '';
+                }
+            });
+
+            // Function to update the client accordion
+            function updateClientAccordion(clientName) {
+                // Check if accordion for client already exists
+                let accordion = document.querySelector(`button.accordion[data-client="${clientName}"]`);
+                let panel = document.querySelector(`div.panel[data-client="${clientName}"]`);
+
+                if (!accordion) {
+                    // Create new accordion and panel
+                    accordion = document.createElement('button');
                     accordion.classList.add('accordion');
+                    accordion.setAttribute('data-client', clientName);
                     accordion.innerText = clientName;
 
-                    const panel = document.createElement('div');
+                    panel = document.createElement('div');
                     panel.classList.add('panel', 'client-panel');
+                    panel.setAttribute('data-client', clientName);
                     panel.innerHTML = `
-                        <label>Auto-Save Status: <span id="autoSaveStatus_${clientName}">Enabled</span></label>
-                        <textarea id="clientNotes_${clientName}" placeholder="Enter notes for the client..."></textarea>
+                        <!-- Client Notes -->
+                        <textarea id="clientNotes_${clientName}" placeholder="Enter notes for the client...">${clients[clientName].notes}</textarea>
                         <button id="saveNotes_${clientName}">Save Notes</button>
-                        
-                        <h4>History</h4>
-                        <ul id="historyLog_${clientName}"></ul>
-                        
-                        <h4>Image Comparison</h4>
-                        <label for="compareImage1_${clientName}">Select Image 1:</label>
-                        <select id="compareImage1_${clientName}"></select>
 
-                        <label for="compareImage2_${clientName}">Select Image 2:</label>
-                        <select id="compareImage2_${clientName}"></select>
+                        <!-- Client Image Gallery -->
+                        <h4>Image Gallery</h4>
+                        <div id="gallery_${clientName}" class="gallery"></div>
 
-                        <button id="compareImages_${clientName}">Compare Images</button>
-                        <div id="imageComparisonContainer_${clientName}">
-                            <img id="comparisonImage1_${clientName}" src="" alt="Image 1" style="width: 48%;">
-                            <img id="comparisonImage2_${clientName}" src="" alt="Image 2" style="width: 48%;">
-                        </div>
-
-                        <button id="exportClientData_${clientName}">Export Client Data</button>
-                        <button id="backupAllData_${clientName}">Backup All Data</button>
-                        
-                        <button id="generateReport_${clientName}">Generate PDF Report</button>
+                        <!-- Buttons for Exporting and Backing Up Data -->
+                        <!-- Additional functionality can be implemented here -->
                     `;
 
+                    // Event listener for the accordion to show/hide the panel
                     accordion.addEventListener('click', function() {
                         this.classList.toggle('active');
                         panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
                     });
 
-                    clients[clientName] = []; // Initialize empty image list for the client
-
                     clientAccordion.appendChild(accordion);
                     clientAccordion.appendChild(panel);
 
-                    newClientName.value = ''; // Clear the input field
+                    // Event listener for saving notes
+                    document.getElementById(`saveNotes_${clientName}`).addEventListener('click', () => {
+                        const notes = document.getElementById(`clientNotes_${clientName}`).value;
+                        clients[clientName].notes = notes;
+                    });
                 }
+
+                // Update the client's image gallery
+                updateClientGallery(clientName);
+            }
+
+            // Function to update the client's image gallery
+            function updateClientGallery(clientName) {
+                const galleryDiv = document.getElementById(`gallery_${clientName}`);
+                galleryDiv.innerHTML = ''; // Clear existing thumbnails
+                clients[clientName].images.forEach((imageObj, index) => {
+                    const img = document.createElement('img');
+                    img.src = imageObj.src;
+                    img.classList.add('thumbnail');
+                    img.title = `${imageObj.eye === 'L' ? 'Left Eye' : 'Right Eye'}`;
+                    img.addEventListener('click', () => {
+                        // Load the image back into the mapper for viewing or editing
+                        currentEye = imageObj.eye;
+                        eyeSideSelector.value = currentEye;
+                        images[currentEye] = imageObj.src;
+                        imgElements[currentEye] = new Image();
+                        imgElements[currentEye].crossOrigin = 'anonymous'; // Ensure cross-origin images can be used
+                        imgElements[currentEye].src = imageObj.src;
+                        imgElements[currentEye].onload = () => {
+                            loadImageForCurrentEye();
+                            imageSettings[currentEye] = { ...imageObj.settings };
+                            updateImageTransform();
+                            svgSettings[currentEye] = { ...imageObj.svgSettings };
+                            applySvgSettings();
+                        };
+                    });
+                    galleryDiv.appendChild(img);
+                });
+            }
+
+            // Dual eye view functionality
+            dualViewButton.addEventListener('click', () => {
+                // Hide single eye mapper container
+                mapperContainer.style.display = 'none';
+                // Show dual eye mapper container
+                dualMapperContainer.classList.add('active');
+                // Show back to single view button
+                backToSingleViewButton.style.display = 'block';
+
+                // Load images and SVGs for both eyes
+                loadDualEyeView();
             });
 
+            // Back to single eye view functionality
+            backToSingleViewButton.addEventListener('click', () => {
+                // Hide dual eye mapper container
+                dualMapperContainer.classList.remove('active');
+                // Hide back to single view button
+                backToSingleViewButton.style.display = 'none';
+                // Show single eye mapper container
+                mapperContainer.style.display = 'block';
+            });
+
+            // Variables for dual view adjustments
+            let isDraggingLeft = false;
+            let isDraggingRight = false;
+            let startLeftX, startLeftY, startRightX, startRightY;
+
+            function loadDualEyeView() {
+                // Left eye
+                leftImageContainer.innerHTML = '';
+                if (imgElements['L']) {
+                    const leftImg = new Image();
+                    leftImg.src = imgElements['L'].src;
+                    leftImg.crossOrigin = 'anonymous'; // Ensure cross-origin images can be used
+                    const settings = imageSettings['L'];
+                    leftImg.style.transform = `translate(-50%, -50%) translate(${settings.translateX}px, ${settings.translateY}px) rotate(${settings.rotation}deg) scale(${settings.scale})`;
+                    leftImg.style.position = 'absolute';
+                    leftImg.style.top = '50%';
+                    leftImg.style.left = '50%';
+                    leftImg.style.maxWidth = '100%';
+                    leftImg.style.maxHeight = '100%';
+                    leftImg.style.width = 'auto';
+                    leftImg.style.height = 'auto';
+                    leftImageContainer.appendChild(leftImg);
+                    fitDualImageToContainer('L');
+                }
+
+                if (svgSettings['L'].svgContent) {
+                    leftSvgContainer.innerHTML = svgSettings['L'].svgContent;
+                    const svgElement = leftSvgContainer.querySelector('svg');
+                    if (svgElement) {
+                        svgElement.setAttribute('width', '100%');
+                        svgElement.setAttribute('height', '100%');
+                        svgElement.style.pointerEvents = 'none';
+                        leftSvgContainer.style.opacity = svgSettings['L'].opacity;
+                        const svgPaths = leftSvgContainer.querySelectorAll('svg path');
+                        svgPaths.forEach(path => {
+                            path.setAttribute('stroke', svgSettings['L'].mapColor);
+                        });
+                    }
+                }
+
+                // Right eye
+                rightImageContainer.innerHTML = '';
+                if (imgElements['R']) {
+                    const rightImg = new Image();
+                    rightImg.src = imgElements['R'].src;
+                    rightImg.crossOrigin = 'anonymous'; // Ensure cross-origin images can be used
+                    const settings = imageSettings['R'];
+                    rightImg.style.transform = `translate(-50%, -50%) translate(${settings.translateX}px, ${settings.translateY}px) rotate(${settings.rotation}deg) scale(${settings.scale})`;
+                    rightImg.style.position = 'absolute';
+                    rightImg.style.top = '50%';
+                    rightImg.style.left = '50%';
+                    rightImg.style.maxWidth = '100%';
+                    rightImg.style.maxHeight = '100%';
+                    rightImg.style.width = 'auto';
+                    rightImg.style.height = 'auto';
+                    rightImageContainer.appendChild(rightImg);
+                    fitDualImageToContainer('R');
+                }
+
+                if (svgSettings['R'].svgContent) {
+                    rightSvgContainer.innerHTML = svgSettings['R'].svgContent;
+                    const svgElement = rightSvgContainer.querySelector('svg');
+                    if (svgElement) {
+                        svgElement.setAttribute('width', '100%');
+                        svgElement.setAttribute('height', '100%');
+                        svgElement.style.pointerEvents = 'none';
+                        rightSvgContainer.style.opacity = svgSettings['R'].opacity;
+                        const svgPaths = rightSvgContainer.querySelectorAll('svg path');
+                        svgPaths.forEach(path => {
+                            path.setAttribute('stroke', svgSettings['R'].mapColor);
+                        });
+                    }
+                }
+
+                // Add event listeners for manual adjustments
+                addDualViewAdjustments();
+            }
+
+            function fitDualImageToContainer(eye) {
+                const imgContainer = eye === 'L' ? leftImageContainer : rightImageContainer;
+                const img = imgContainer.querySelector('img');
+                const container = imgContainer;
+                if (img && container) {
+                    const containerAspect = container.offsetWidth / container.offsetHeight;
+                    const imageAspect = img.naturalWidth / img.naturalHeight;
+
+                    if (imageAspect > containerAspect) {
+                        // Image is wider than container
+                        img.style.width = '100%';
+                        img.style.height = 'auto';
+                    } else {
+                        // Image is taller than container
+                        img.style.width = 'auto';
+                        img.style.height = '100%';
+                    }
+
+                    // Reset scale to 1 after fitting
+                    imageSettings[eye].scale = 1;
+                }
+            }
+
+            function addDualViewAdjustments() {
+                // Left eye adjustments
+                leftImageContainer.parentElement.addEventListener('mousedown', function(e) {
+                    isDraggingLeft = true;
+                    startLeftX = e.clientX - imageSettings['L'].translateX;
+                    startLeftY = e.clientY - imageSettings['L'].translateY;
+                });
+
+                rightImageContainer.parentElement.addEventListener('mousedown', function(e) {
+                    isDraggingRight = true;
+                    startRightX = e.clientX - imageSettings['R'].translateX;
+                    startRightY = e.clientY - imageSettings['R'].translateY;
+                });
+
+                document.addEventListener('mousemove', function(e) {
+                    if (isDraggingLeft && imgElements['L']) {
+                        imageSettings['L'].translateX = e.clientX - startLeftX;
+                        imageSettings['L'].translateY = e.clientY - startLeftY;
+                        updateDualImageTransform('L');
+                    }
+                    if (isDraggingRight && imgElements['R']) {
+                        imageSettings['R'].translateX = e.clientX - startRightX;
+                        imageSettings['R'].translateY = e.clientY - startRightY;
+                        updateDualImageTransform('R');
+                    }
+                });
+
+                document.addEventListener('mouseup', function() {
+                    isDraggingLeft = false;
+                    isDraggingRight = false;
+                });
+            }
+
+            function updateDualImageTransform(eye) {
+                const imgContainer = eye === 'L' ? leftImageContainer : rightImageContainer;
+                const img = imgContainer.querySelector('img');
+                if (img) {
+                    const settings = imageSettings[eye];
+                    img.style.transform = `translate(-50%, -50%) translate(${settings.translateX}px, ${settings.translateY}px) rotate(${settings.rotation}deg) scale(${settings.scale})`;
+                }
+            }
+
+            // Switch to the default eye on load
+            switchEye(currentEye);
         });
     </script>
-    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 </body>
 </html>
