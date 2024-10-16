@@ -9,29 +9,38 @@
         /* Styles for the body and main container */
         body {
             font-family: Arial, sans-serif;
-            text-align: center;
-            padding: 20px;
-            background-color: #f0f0f0;
+            background-color: #f5f5f5;
             margin: 0;
         }
 
+        /* Main title of the application */
+        h1 {
+    margin: 0 0 20px 0;
+    color: #333;
+    text-align: center;
+}
+
         /* Mapper container to display images and SVGs */
         #mapper-container {
-            width: 1000px;
-            height: 800px;
-            margin: 20px auto;
-            position: relative;
-            border: 2px solid #333;
-            overflow: hidden;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-            background-color: white;
-        }
+            width: calc(100% - 270px); /* Adjust based on the width of your floating menu */
+    height: calc(100vh - 100px); /* Adjust based on your header and any margins */
+    max-width: none;
+    margin: 20px 0 20px 270px; /* Add left margin to account for the floating menu */
+    position: relative;
+    border: 2px solid #007BFF;
+    overflow: hidden;
+    background-color: white;
+    box-sizing: border-box;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+}
 
         /* Dual eye view container */
         #dual-mapper-container {
             display: none; /* Hidden by default */
-            width: 1000px;
-            height: 800px;
+            width: calc(100% - 20px);
+            max-width: 1000px;
+            height: 600px;
             margin: 20px auto;
             position: relative;
         }
@@ -39,7 +48,6 @@
         #dual-mapper-container.active {
             display: flex;
             justify-content: space-between;
-            position: relative;
         }
 
         /* Individual eye containers for dual view */
@@ -50,6 +58,8 @@
             border: 2px solid #333;
             overflow: hidden;
             background-color: white;
+            box-sizing: border-box;
+            box-shadow: 0 0 5px rgba(0,0,0,0.1);
         }
 
         /* Positioning for image and SVG containers */
@@ -94,13 +104,14 @@
             left: 0;
             top: 0;
             bottom: 0;
-            width: 200px;
+            width: 250px;
             background-color: #f7f7f7;
             border-right: 2px solid #333;
             padding: 15px;
             transition: transform 0.3s ease;
             z-index: 1000;
             overflow-y: auto;
+            box-sizing: border-box;
         }
 
         /* Hide the menu when not needed */
@@ -111,6 +122,8 @@
         /* Heading style for the menu */
         #floating-menu h3 {
             margin-bottom: 15px;
+            color: #333;
+            text-align: center;
         }
 
         /* Styles for buttons and inputs in the menu */
@@ -118,7 +131,7 @@
             display: block;
             margin: 10px 0;
             padding: 8px 15px;
-            background-color: #4CAF50;
+            background-color: #007BFF; /* Blue color */
             color: white;
             border: none;
             border-radius: 5px;
@@ -126,11 +139,12 @@
             transition: background-color 0.3s;
             width: 100%;
             box-sizing: border-box;
+            font-size: 16px;
         }
 
         /* Change button color on hover */
         button:hover {
-            background-color: #45a049;
+            background-color: #0056b3;
         }
 
         /* Menu toggle button styles */
@@ -140,7 +154,7 @@
             left: 200px;
             transform: translateY(-50%);
             padding: 5px 10px;
-            background-color: #4CAF50;
+            background-color: #0056b3;
             color: white;
             border: none;
             border-top-right-radius: 5px;
@@ -154,9 +168,19 @@
         }
 
         /* Adjust toggle button when menu is hidden */
-        #menu-toggle.hidden {
+        #menu-toggle.menu-hidden {
             left: 0;
         }
+
+        /* Main content area */
+        .main-content {
+    margin-left: 250px; /* Match the width of your floating menu */
+    padding: 20px;
+    height: 100vh;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+}
 
         /* Layout for directional buttons */
         .direction-buttons {
@@ -169,6 +193,7 @@
         /* Directional buttons styles */
         .direction-buttons button {
             font-size: 18px;
+            padding: 10px;
         }
 
         /* Accordion styles for client sections */
@@ -183,6 +208,7 @@
             outline: none;
             transition: background-color 0.3s ease;
             margin-bottom: 5px;
+            border-radius: 5px;
         }
 
         /* Change background on hover */
@@ -196,6 +222,8 @@
             background-color: white;
             display: none;
             overflow: hidden;
+            border: 1px solid #ccc;
+            border-radius: 5px;
         }
 
         /* Client panel styles */
@@ -210,6 +238,8 @@
             object-fit: cover;
             margin: 5px;
             cursor: pointer;
+            border: 2px solid #333;
+            border-radius: 5px;
         }
 
         /* Gallery container */
@@ -221,12 +251,12 @@
         /* Back to Single Eye View button styles */
         #backToSingleViewButton {
             display: none; /* Hidden by default */
-            position: absolute; /* Changed to absolute positioning */
+            position: absolute;
             top: 10px;
             left: 50%;
             transform: translateX(-50%);
             z-index: 1001;
-            background-color: #4CAF50;
+            background-color: #007BFF; /* Blue color */
             color: white;
             padding: 8px 15px;
             border: none;
@@ -236,28 +266,80 @@
         }
 
         #backToSingleViewButton:hover {
-            background-color: #45a049;
+            background-color: #0056b3;
         }
 
-        /* Ensure the button is within the dual-mapper-container */
-        #dual-mapper-container {
-            position: relative;
-        }
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+    #floating-menu {
+        width: 100%;
+        position: static;
+        height: auto;
+    }
 
-        /* Adjust the image containers in dual view */
-        .eye-container {
-            position: relative;
-        }
+    .main-content {
+        margin-left: 0;
+        padding: 10px;
+    }
 
-        /* Prevent images from overlapping the button */
-        #dual-mapper-container .eye-container {
-            margin-top: 50px; /* Adjust as needed to create space for the button */
-        }
+    #mapper-container {
+        width: 100%;
+        height: calc(100vh - 200px); /* Adjust based on your header and menu height on mobile */
+        margin: 20px 0;
+    }
+}
+
+            /* Adjust containers for smaller screens */
+            .eye-container {
+                width: 100%;
+                height: auto;
+                margin-bottom: 20px;
+            }
+
+            #dual-mapper-container.active {
+                flex-direction: column;
+                align-items: center;
+            }
+        
+        @media (max-width: 768px) {
+    #mapper-container, #dual-mapper-container {
+        height: 400px;
+    }
+    
+    #floating-menu {
+        width: 100%;
+        position: static;
+        height: auto;
+    }
+    
+    .main-content {
+        margin-left: 0;
+    }
+    
+    #menu-toggle {
+        display: none;
+    }
+    
+    .eye-container {
+        width: 100%;
+        height: 300px;
+        margin-bottom: 20px;
+    }
+}
+#svg-container svg {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+body {
+    max-width: 1600px;
+    margin: 0 auto;
+}
     </style>
 </head>
 <body>
-    <!-- Main title of the application -->
-    <h1>Enhanced Iris Mapper</h1>
+    <!-- Menu toggle button to show/hide the floating menu -->
+    <button id="menu-toggle">◀</button>
 
     <!-- Floating menu that contains all the tools -->
     <div id="floating-menu">
@@ -325,7 +407,9 @@
         <!-- Dual Eye View Button -->
         <button id="dualViewButton">👀 Dual Eye View</button>
 
-        <!-- Save Image Button -->
+        <!-- Save Image Section -->
+        <label for="filenameInput">Image Filename:</label>
+        <input type="text" id="filenameInput" placeholder="Enter filename (optional)">
         <button id="saveImage">💾 Save Image</button>
 
         <!-- Accordion for Clients Section -->
@@ -337,36 +421,40 @@
         <div id="clientAccordion"></div>
     </div>
 
-    <!-- Menu toggle button to show/hide the floating menu -->
-    <button id="menu-toggle">◀</button>
+    <!-- Main content area -->
+    <div class="main-content">
+        <!-- Main title of the application -->
+        <h1>Enhanced Iris Mapper</h1>
 
-    <!-- Single eye mapper container -->
-    <div id="mapper-container">
-        <div id="image-container"></div>
-        <div id="svg-container"></div>
-    </div>
-
-    <!-- Dual eye mapper container -->
-    <div id="dual-mapper-container">
-        <!-- Button to return to single eye view -->
-        <button id="backToSingleViewButton">🔙 Back to Single Eye View</button>
-        <!-- Left eye container -->
-        <div class="eye-container" id="left-eye-container">
-            <div id="left-image-container"></div>
-            <div id="left-svg-container"></div>
+        <!-- Single eye mapper container -->
+        <div id="mapper-container">
+            <div id="image-container"></div>
+            <div id="svg-container"></div>
         </div>
-        <!-- Right eye container -->
-        <div class="eye-container" id="right-eye-container">
-            <div id="right-image-container"></div>
-            <div id="right-svg-container"></div>
+
+        <!-- Dual eye mapper container -->
+        <div id="dual-mapper-container">
+            <!-- Back to Single Eye View Button -->
+            <button id="backToSingleViewButton">🔙 Back to Single Eye View</button>
+
+            <!-- Left eye container -->
+            <div class="eye-container" id="left-eye-container">
+                <div id="left-image-container"></div>
+                <div id="left-svg-container"></div>
+            </div>
+            <!-- Right eye container -->
+            <div class="eye-container" id="right-eye-container">
+                <div id="right-image-container"></div>
+                <div id="right-svg-container"></div>
+            </div>
         </div>
     </div>
 
     <!-- JavaScript to add functionality to the application -->
     <!-- Include html2canvas library -->
-    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <!-- Include DOMPurify library -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/2.4.3/purify.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/2.4.0/purify.min.js"></script>
     <script>
         // Wait until the page is fully loaded
         document.addEventListener('DOMContentLoaded', function() {
@@ -381,6 +469,7 @@
             const opacitySlider = document.getElementById('opacitySlider');
             const menuToggle = document.getElementById('menu-toggle');
             const floatingMenu = document.getElementById('floating-menu');
+            const mainContent = document.querySelector('.main-content');
             const newClientName = document.getElementById('newClientName');
             const clientAccordion = document.getElementById('clientAccordion');
             const imageUpload = document.getElementById('imageUpload');
@@ -393,6 +482,7 @@
             const rightImageContainer = document.getElementById('right-image-container');
             const leftSvgContainer = document.getElementById('left-svg-container');
             const rightSvgContainer = document.getElementById('right-svg-container');
+            const filenameInput = document.getElementById('filenameInput');
             let clients = {};  // Object to store clients and their images
             let currentEye = 'L'; // 'L' for left, 'R' for right
             let images = {
@@ -414,6 +504,7 @@
             let isDragging = false;
             let startX, startY;
             let customSvgContent = '';
+            
 
             // Function to update the current eye variable and load the corresponding image and settings
             function switchEye(eye) {
@@ -428,8 +519,17 @@
             // Toggle menu visibility
             menuToggle.addEventListener('click', function() {
                 floatingMenu.classList.toggle('hidden');
-                menuToggle.classList.toggle('hidden');
+                menuToggle.classList.toggle('menu-hidden');
                 menuToggle.textContent = floatingMenu.classList.contains('hidden') ? '▶' : '◀';
+
+                // Adjust main content margin
+                if (floatingMenu.classList.contains('hidden')) {
+                    mainContent.style.marginLeft = '0';
+                    menuToggle.style.left = '0';
+                } else {
+                    mainContent.style.marginLeft = '250px';
+                    menuToggle.style.left = '250px';
+                }
             });
 
             // Load SVG based on selection and current eye
@@ -547,24 +647,29 @@
 
             // Image upload handling
             imageUpload.addEventListener('change', function(e) {
-                const file = e.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = function(event) {
-                        const img = new Image();
-                        img.crossOrigin = 'anonymous'; // Ensure cross-origin images can be used
-                        img.onload = function() {
-                            images[currentEye] = event.target.result;
-                            imgElements[currentEye] = img;
-                            loadImageForCurrentEye();
-                            resetImagePosition();
-                            svgContainer.style.display = 'block';
-                        };
-                        img.src = event.target.result;
-                    };
-                    reader.readAsDataURL(file);
+    const file = e.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            const img = new Image();
+            img.onload = function() {
+                // Check if image is HD (at least 1280x720)
+                if (img.width >= 1280 && img.height >= 720) {
+                    images[currentEye] = event.target.result;
+                    imgElements[currentEye] = img;
+                    loadImageForCurrentEye();
+                    resetImagePosition();
+                    svgContainer.style.display = 'block';
+                } else {
+                    alert("Please upload an HD image (at least 1280x720 pixels)");
                 }
-            });
+            };
+            img.src = event.target.result;
+            img.crossOrigin = "anonymous";
+        };
+        reader.readAsDataURL(file);
+    }
+});
 
             // Function to load image for the current eye
             function loadImageForCurrentEye() {
@@ -585,7 +690,7 @@
                 }
             }
 
-            // Add a new function to fit the image to the container
+            // Function to fit the image to the container
             function fitImageToContainer() {
                 const img = imgElements[currentEye];
                 const container = imageContainer;
@@ -657,7 +762,7 @@
                 updateImageTransform();
             });
 
-            // Drag the image using the mouse
+            // Drag the image using the mouse in single eye view
             mapperContainer.addEventListener('mousedown', function(e) {
                 isDragging = true;
                 startX = e.clientX - imageSettings[currentEye].translateX;
@@ -714,26 +819,60 @@
 
             // Save the image with SVG overlay
             document.getElementById('saveImage').addEventListener('click', () => {
-                // Ensure all images are loaded and transformations are applied
-                html2canvas(mapperContainer, {
-                    useCORS: true,
-                    allowTaint: false,
+                let targetElement;
+                if (dualMapperContainer.classList.contains('active')) {
+                    targetElement = dualMapperContainer;
+                } else {
+                    targetElement = mapperContainer;
+                }
+
+                // Get the custom filename
+                let filename = filenameInput.value.trim();
+                if (!filename) {
+                    // Use default filename if none provided
+                    const eyeSide = dualMapperContainer.classList.contains('active') ? 'DualEye' : (currentEye === 'L' ? 'LeftEye' : 'RightEye');
+                    const date = new Date().toISOString().slice(0,19).replace(/[:T]/g, '-');
+                    filename = `${eyeSide}_${date}.png`;
+                } else {
+                    // Validate filename to remove invalid characters
+                    filename = filename.replace(/[/\\?%*:|"<>]/g, '-');
+                    if (!filename.toLowerCase().endsWith('.png')) {
+                        filename += '.png';
+                    }
+                }
+
+                // Use html2canvas to capture the target element
+                html2canvas(targetElement, {
                     backgroundColor: null,
-                    logging: false,
+                    useCORS: true,
                     scale: 2, // Increase scale for higher resolution
-                }).then(canvas => {
+                    logging: false, // Disable logging
+                    onclone: (clonedDoc) => {
+                        // Ensure that hidden elements are not visible in the cloned document
+                        if (dualMapperContainer.classList.contains('active')) {
+                            clonedDoc.getElementById('mapper-container').style.display = 'none';
+                        } else {
+                            clonedDoc.getElementById('dual-mapper-container').style.display = 'none';
+                        }
+                    }
+                }).then(function(canvas) {
+                    const dataUrl = canvas.toDataURL('image/png');
                     const link = document.createElement('a');
-                    link.download = 'iris_map.png';
-                    link.href = canvas.toDataURL();
+                    link.download = filename;
+                    link.href = dataUrl;
                     link.click();
-                }).catch(error => {
+                }).catch(function(error) {
                     console.error('Error saving image:', error);
                 });
             });
 
             // Toggle the visibility of the SVG map
             document.getElementById('toggleMap').addEventListener('click', () => {
-                svgContainer.style.display = svgContainer.style.display === 'none' ? 'block' : 'none';
+                if (svgContainer.style.display === 'none') {
+                    svgContainer.style.display = 'block';
+                } else {
+                    svgContainer.style.display = 'none';
+                }
             });
 
             // Function to add a new client to the accordion
@@ -790,9 +929,6 @@
                         <!-- Client Image Gallery -->
                         <h4>Image Gallery</h4>
                         <div id="gallery_${clientName}" class="gallery"></div>
-
-                        <!-- Buttons for Exporting and Backing Up Data -->
-                        <!-- Additional functionality can be implemented here -->
                     `;
 
                     // Event listener for the accordion to show/hide the panel
@@ -817,32 +953,44 @@
 
             // Function to update the client's image gallery
             function updateClientGallery(clientName) {
-                const galleryDiv = document.getElementById(`gallery_${clientName}`);
-                galleryDiv.innerHTML = ''; // Clear existing thumbnails
-                clients[clientName].images.forEach((imageObj, index) => {
-                    const img = document.createElement('img');
-                    img.src = imageObj.src;
-                    img.classList.add('thumbnail');
-                    img.title = `${imageObj.eye === 'L' ? 'Left Eye' : 'Right Eye'}`;
-                    img.addEventListener('click', () => {
-                        // Load the image back into the mapper for viewing or editing
-                        currentEye = imageObj.eye;
-                        eyeSideSelector.value = currentEye;
-                        images[currentEye] = imageObj.src;
-                        imgElements[currentEye] = new Image();
-                        imgElements[currentEye].crossOrigin = 'anonymous'; // Ensure cross-origin images can be used
-                        imgElements[currentEye].src = imageObj.src;
-                        imgElements[currentEye].onload = () => {
-                            loadImageForCurrentEye();
-                            imageSettings[currentEye] = { ...imageObj.settings };
-                            updateImageTransform();
-                            svgSettings[currentEye] = { ...imageObj.svgSettings };
-                            applySvgSettings();
-                        };
-                    });
-                    galleryDiv.appendChild(img);
-                });
-            }
+    const galleryDiv = document.getElementById(`gallery_${clientName}`);
+    galleryDiv.innerHTML = ''; // Clear existing thumbnails
+    clients[clientName].images.forEach((imageObj, index) => {
+        const imgContainer = document.createElement('div');
+        imgContainer.style.display = 'inline-block';
+        imgContainer.style.margin = '5px';
+        
+        const img = document.createElement('img');
+        img.src = imageObj.src;
+        img.classList.add('thumbnail');
+        img.title = imageObj.name || `${imageObj.eye === 'L' ? 'Left Eye' : 'Right Eye'}`;
+        
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.value = imageObj.name || `${imageObj.eye === 'L' ? 'Left Eye' : 'Right Eye'}`;
+        nameInput.style.width = '100px';
+        nameInput.style.display = 'block';
+        
+        const renameButton = document.createElement('button');
+        renameButton.textContent = 'Rename';
+        renameButton.style.display = 'block';
+        
+        renameButton.addEventListener('click', () => {
+            imageObj.name = nameInput.value;
+            img.title = nameInput.value;
+            alert(`Image renamed to: ${nameInput.value}`);
+        });
+        
+        img.addEventListener('click', () => {
+            // (existing code for loading image)
+        });
+        
+        imgContainer.appendChild(img);
+        imgContainer.appendChild(nameInput);
+        imgContainer.appendChild(renameButton);
+        galleryDiv.appendChild(imgContainer);
+    });
+}
 
             // Dual eye view functionality
             dualViewButton.addEventListener('click', () => {
@@ -878,18 +1026,16 @@
                 if (imgElements['L']) {
                     const leftImg = new Image();
                     leftImg.src = imgElements['L'].src;
-                    leftImg.crossOrigin = 'anonymous'; // Ensure cross-origin images can be used
-                    const settings = imageSettings['L'];
-                    leftImg.style.transform = `translate(-50%, -50%) translate(${settings.translateX}px, ${settings.translateY}px) rotate(${settings.rotation}deg) scale(${settings.scale})`;
-                    leftImg.style.position = 'absolute';
-                    leftImg.style.top = '50%';
-                    leftImg.style.left = '50%';
-                    leftImg.style.maxWidth = '100%';
-                    leftImg.style.maxHeight = '100%';
-                    leftImg.style.width = 'auto';
-                    leftImg.style.height = 'auto';
-                    leftImageContainer.appendChild(leftImg);
-                    fitDualImageToContainer('L');
+                    leftImg.crossOrigin = "anonymous"; // Ensure CORS is handled
+                    leftImg.onload = function() {
+                        const settings = imageSettings['L'];
+                        leftImg.style.position = 'absolute';
+                        leftImg.style.top = '50%';
+                        leftImg.style.left = '50%';
+                        leftImg.style.transform = `translate(-50%, -50%) translate(${settings.translateX}px, ${settings.translateY}px) rotate(${settings.rotation}deg) scale(${settings.scale})`;
+                        leftImageContainer.appendChild(leftImg);
+                        fitImageToContainerDual('L');
+                    };
                 }
 
                 if (svgSettings['L'].svgContent) {
@@ -912,18 +1058,16 @@
                 if (imgElements['R']) {
                     const rightImg = new Image();
                     rightImg.src = imgElements['R'].src;
-                    rightImg.crossOrigin = 'anonymous'; // Ensure cross-origin images can be used
-                    const settings = imageSettings['R'];
-                    rightImg.style.transform = `translate(-50%, -50%) translate(${settings.translateX}px, ${settings.translateY}px) rotate(${settings.rotation}deg) scale(${settings.scale})`;
-                    rightImg.style.position = 'absolute';
-                    rightImg.style.top = '50%';
-                    rightImg.style.left = '50%';
-                    rightImg.style.maxWidth = '100%';
-                    rightImg.style.maxHeight = '100%';
-                    rightImg.style.width = 'auto';
-                    rightImg.style.height = 'auto';
-                    rightImageContainer.appendChild(rightImg);
-                    fitDualImageToContainer('R');
+                    rightImg.crossOrigin = "anonymous"; // Ensure CORS is handled
+                    rightImg.onload = function() {
+                        const settings = imageSettings['R'];
+                        rightImg.style.position = 'absolute';
+                        rightImg.style.top = '50%';
+                        rightImg.style.left = '50%';
+                        rightImg.style.transform = `translate(-50%, -50%) translate(${settings.translateX}px, ${settings.translateY}px) rotate(${settings.rotation}deg) scale(${settings.scale})`;
+                        rightImageContainer.appendChild(rightImg);
+                        fitImageToContainerDual('R');
+                    };
                 }
 
                 if (svgSettings['R'].svgContent) {
@@ -945,10 +1089,9 @@
                 addDualViewAdjustments();
             }
 
-            function fitDualImageToContainer(eye) {
-                const imgContainer = eye === 'L' ? leftImageContainer : rightImageContainer;
-                const img = imgContainer.querySelector('img');
-                const container = imgContainer;
+            function fitImageToContainerDual(eye) {
+                const img = eye === 'L' ? leftImageContainer.querySelector('img') : rightImageContainer.querySelector('img');
+                const container = eye === 'L' ? leftImageContainer : rightImageContainer;
                 if (img && container) {
                     const containerAspect = container.offsetWidth / container.offsetHeight;
                     const imageAspect = img.naturalWidth / img.naturalHeight;
@@ -962,9 +1105,6 @@
                         img.style.width = 'auto';
                         img.style.height = '100%';
                     }
-
-                    // Reset scale to 1 after fitting
-                    imageSettings[eye].scale = 1;
                 }
             }
 
@@ -998,6 +1138,21 @@
                 document.addEventListener('mouseup', function() {
                     isDraggingLeft = false;
                     isDraggingRight = false;
+                });
+
+                // Mouse wheel zoom for dual view
+                leftImageContainer.parentElement.addEventListener('wheel', function(e) {
+                    e.preventDefault();
+                    const delta = e.deltaY * -0.001;
+                    imageSettings['L'].scale *= 1 + delta;
+                    updateDualImageTransform('L');
+                });
+
+                rightImageContainer.parentElement.addEventListener('wheel', function(e) {
+                    e.preventDefault();
+                    const delta = e.deltaY * -0.001;
+                    imageSettings['R'].scale *= 1 + delta;
+                    updateDualImageTransform('R');
                 });
             }
 
