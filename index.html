@@ -117,18 +117,39 @@
             border: 1px solid #ccc;
             border-radius: 4px;
         }
-        #image-container, #svg-container, #left-image-container, #right-image-container, #left-svg-container, #right-svg-container {
+        /* Adjusted z-index: SVG containers above image containers */
+        #image-container, #left-image-container, #right-image-container {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
+            z-index: 1; /* Lower z-index to be below SVG containers */
         }
+        #svg-container, #left-svg-container, #right-svg-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2; /* Higher z-index to be above image containers */
+            pointer-events: none; /* Lock SVG overlays to prevent interaction */
+            user-select: none; /* Prevent text selection within SVGs */
+        }
+        /* Ensure images can receive pointer events */
         #image-container img, #left-image-container img, #right-image-container img {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
+            cursor: grab;
+            user-select: none;
+            /* Prevent image dragging */
+            -webkit-user-drag: none;
+            -moz-user-drag: none;
+            -ms-user-drag: none;
+            user-drag: none;
+            pointer-events: auto; /* Ensure images can receive mouse events */
         }
         #dual-mapper-container {
             display: none;
@@ -196,10 +217,12 @@
 </head>
 <body>
     <div class="app-container">
+        <!-- Single Eye Mapper -->
         <div id="single-mapper-container" class="iris-container">
             <div id="image-container"></div>
             <div id="svg-container"></div>
         </div>
+        <!-- Dual Eye Mapper -->
         <div id="dual-mapper-container">
             <div class="eye-container">
                 <div id="left-image-container"></div>
@@ -211,6 +234,7 @@
             </div>
         </div>
         
+        <!-- Controls: Top Left -->
         <div class="controls top-left">
             <input type="file" id="imageUpload" accept="image/*" style="display:none;">
             <button class="btn" onclick="document.getElementById('imageUpload').click()">Upload Image</button>
@@ -235,12 +259,14 @@
             </div>
         </div>
         
+        <!-- Controls: Top Right -->
         <div class="controls top-right">
             <button class="btn" id="leftEye">L</button>
             <button class="btn" id="rightEye">R</button>
             <button class="btn" id="bothEyes">L+R</button>
         </div>
         
+        <!-- Controls: Bottom Left -->
         <div class="controls bottom-left">
             <input type="range" id="opacitySlider" min="0" max="1" step="0.01" value="0.7">
             <input type="color" id="mapColor" value="#000000">
@@ -248,11 +274,13 @@
             <button class="btn" id="save">Save</button>
         </div>
         
+        <!-- Controls: Bottom Right -->
         <div class="controls bottom-right">
             <span class="watermark">IRISLAB</span>
         </div>
     </div>
 
+    <!-- Map Selection Modal -->
     <div id="mapModal" class="modal">
         <div class="modal-content">
             <span class="close">&times;</span>
@@ -261,6 +289,7 @@
         </div>
     </div>
 
+    <!-- External Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/2.4.3/purify.min.js"></script>
 
@@ -283,9 +312,9 @@
             const closeBtn = document.getElementsByClassName('close')[0];
 
             // State Variables
-            let currentEye = 'L';
+            let currentEye = 'L'; // 'L' for Left, 'R' for Right
             let isDualViewActive = false;
-            let images = { 'L': null, 'R': null };
+            let images = { 'L': null, 'R': null }; // Stores image data URLs
             let imageSettings = {
                 'L': { rotation: 0, scale: 1, translateX: 0, translateY: 0 },
                 'R': { rotation: 0, scale: 1, translateX: 0, translateY: 0 }
@@ -294,9 +323,100 @@
                 'L': { svgContent: '', mapColor: '#000000', opacity: 0.7 },
                 'R': { svgContent: '', mapColor: '#000000', opacity: 0.7 }
             };
-            let imgElements = { 'L': null, 'R': null };
+            let imgElements = { 'L': null, 'R': null }; // References to image elements
             let customSvgContent = '';
             const availableMaps = ['Angerer_DE_01', 'Bourdil_FR_01', 'IrisLAB_EN_02', 'IrisLAB_FR_02', 'Jaussas_FR_01', 'Jensen_EN_01', 'Jensen_FR_01', 'Roux_FR_01'];
+
+            // Utility Function: Attach Mouse Events for Drag and Zoom
+            function setupMouseListeners(container, img, eye) {
+                let isDragging = false;
+                let startX, startY;
+                let startTranslateX, startTranslateY;
+
+                function getMousePosition(e) {
+                    const rect = container.getBoundingClientRect();
+                    return {
+                        x: e.clientX - rect.left,
+                        y: e.clientY - rect.top
+                    };
+                }
+
+                function startDrag(e) {
+                    e.preventDefault();
+                    isDragging = true;
+                    const mousePos = getMousePosition(e);
+                    startX = mousePos.x;
+                    startY = mousePos.y;
+                    startTranslateX = imageSettings[eye].translateX;
+                    startTranslateY = imageSettings[eye].translateY;
+                    img.style.cursor = 'grabbing';
+                }
+
+                function drag(e) {
+                    if (!isDragging) return;
+                    e.preventDefault();
+                    const mousePos = getMousePosition(e);
+                    const dx = mousePos.x - startX;
+                    const dy = mousePos.y - startY;
+                    imageSettings[eye].translateX = startTranslateX + dx;
+                    imageSettings[eye].translateY = startTranslateY + dy;
+                    updateImageTransform(eye);
+                }
+
+                function stopDrag(e) {
+                    e.preventDefault();
+                    isDragging = false;
+                    img.style.cursor = 'grab';
+                }
+
+                img.addEventListener('mousedown', startDrag);
+                container.addEventListener('mousemove', drag);
+                container.addEventListener('mouseup', stopDrag);
+                container.addEventListener('mouseleave', stopDrag);
+
+                img.style.cursor = 'grab';
+
+                // Improved Zoom functionality
+                container.addEventListener('wheel', function(e) {
+                    e.preventDefault();
+                    const mousePos = getMousePosition(e);
+                    
+                    const delta = e.deltaY * -0.001;
+                    let newScale = imageSettings[eye].scale * (1 + delta);
+                    
+                    if (newScale > 0.1 && newScale < 10) {
+                        const scaleChange = newScale / imageSettings[eye].scale;
+                        imageSettings[eye].scale = newScale;
+                        
+                        // Adjust translation to zoom towards mouse position
+                        imageSettings[eye].translateX += (mousePos.x - container.offsetWidth / 2 - imageSettings[eye].translateX) * (1 - scaleChange);
+                        imageSettings[eye].translateY += (mousePos.y - container.offsetHeight / 2 - imageSettings[eye].translateY) * (1 - scaleChange);
+                        
+                        updateImageTransform(eye);
+                    }
+                });
+
+                // Double-click to reset
+                img.addEventListener('dblclick', function(e) {
+                    e.preventDefault();
+                    resetImagePosition(eye);
+                });
+            }
+
+            // Function to Update Image Transformations
+            function updateImageTransform(eye = currentEye) {
+                const img = imgElements[eye];
+                if (img) {
+                    const settings = imageSettings[eye];
+                    img.style.transform = `translate(-50%, -50%) translate(${settings.translateX}px, ${settings.translateY}px) rotate(${settings.rotation}deg) scale(${settings.scale})`;
+                }
+            }
+
+            // Function to Reset Image Position
+            function resetImagePosition(eye) {
+                imageSettings[eye] = { rotation: 0, scale: 1, translateX: 0, translateY: 0 };
+                updateImageTransform(eye);
+            }
 
             // Function to Initialize SVG Loading
             function loadSVG(svgFile, eye = currentEye) {
@@ -323,9 +443,19 @@
                 if (svgElement) {
                     svgElement.setAttribute('width', '100%');
                     svgElement.setAttribute('height', '100%');
-                    svgElement.style.pointerEvents = 'none';
+                    svgElement.style.pointerEvents = 'none'; // Ensure SVG does not intercept mouse events
+                    svgElement.style.userSelect = 'none'; // Prevent text selection within SVG
                     container.style.opacity = svgSettings[eye].opacity;
                     changeMapColor(svgSettings[eye].mapColor, eye);
+                    
+                    // Additionally, apply user-select: none to all text elements within SVG
+                    const svgTexts = svgElement.querySelectorAll('text');
+                    svgTexts.forEach(text => {
+                        text.style.userSelect = 'none';
+                        text.style.webkitUserSelect = 'none';
+                        text.style.msUserSelect = 'none';
+                        text.style.mozUserSelect = 'none';
+                    });
                 }
             }
 
@@ -340,38 +470,6 @@
                 svgSettings[eye].mapColor = color;
             }
 
-            // Function to Update Image Transformations
-            function updateImageTransform(eye = currentEye) {
-                const img = imgElements[eye];
-                const container = isDualViewActive ? 
-                    (eye === 'L' ? leftImageContainer : rightImageContainer) : imageContainer;
-                if (img) {
-                    const settings = imageSettings[eye];
-                    img.style.transform = `translate(-50%, -50%) translate(${settings.translateX}px, ${settings.translateY}px) rotate(${settings.rotation}deg) scale(${settings.scale})`;
-                }
-            }
-
-            // Function to Fit Image to Container
-            function fitImageToContainer(eye = currentEye) {
-                const img = imgElements[eye];
-                const container = isDualViewActive ? 
-                    (eye === 'L' ? leftImageContainer : rightImageContainer) : imageContainer;
-                if (img && container) {
-                    const containerAspect = container.offsetWidth / container.offsetHeight;
-                    const imageAspect = img.naturalWidth / img.naturalHeight;
-
-                    if (imageAspect > containerAspect) {
-                        img.style.width = '100%';
-                        img.style.height = 'auto';
-                    } else {
-                        img.style.width = 'auto';
-                        img.style.height = '100%';
-                    }
-
-                    imageSettings[eye].scale = 1;
-                }
-            }
-
             // Function to Load Image for Specific Eye
             function loadImageForSpecificEye(eye) {
                 const container = isDualViewActive ? 
@@ -384,7 +482,7 @@
                     img.style.left = '50%';
                     img.style.transform = 'translate(-50%, -50%)';
                     container.appendChild(img);
-                    fitImageToContainer(eye);
+                    setupMouseListeners(container, img, eye); // Attach Enhanced Mouse Events
                     updateImageTransform(eye);
                 }
             }
@@ -417,91 +515,6 @@
                 }
             });
 
-            // Function to Reset Image Position
-            function resetImagePosition(eye) {
-                imageSettings[eye] = { rotation: 0, scale: 1, translateX: 0, translateY: 0 };
-                fitImageToContainer(eye);
-                updateImageTransform(eye);
-            }
-
-            // Improved Mouse Wheel Zoom
-            function setupWheelZoom(container, eye) {
-                container.addEventListener('wheel', function(e) {
-                    e.preventDefault();
-                    const rect = container.getBoundingClientRect();
-                    const mouseX = e.clientX - rect.left;
-                    const mouseY = e.clientY - rect.top;
-                    
-                    const delta = e.deltaY * -0.002;
-                    const newScale = imageSettings[eye].scale * (1 + delta);
-                    
-                    if (newScale > 0.1 && newScale < 10) {
-                        const scaleChange = newScale / imageSettings[eye].scale;
-                        imageSettings[eye].scale = newScale;
-                        
-                        // Adjust translation to zoom towards mouse position
-                        imageSettings[eye].translateX += (mouseX - rect.width / 2 - imageSettings[eye].translateX) * (1 - scaleChange);
-                        imageSettings[eye].translateY += (mouseY - rect.height / 2 - imageSettings[eye].translateY) * (1 - scaleChange);
-                        
-                        updateImageTransform(eye);
-                    }
-                });
-            }
-
-            setupWheelZoom(imageContainer, 'L');
-            setupWheelZoom(leftImageContainer, 'L');
-            setupWheelZoom(rightImageContainer, 'R');
-
-            // Improved Drag Functionality
-            function setupDragListeners(container, eye) {
-                let isDragging = false;
-                let startX, startY;
-
-                container.addEventListener('mousedown', function(e) {
-                    if (imgElements[eye]) {
-                        isDragging = true;
-                        startX = e.clientX - imageSettings[eye].translateX;
-                        startY = e.clientY - imageSettings[eye].translateY;
-                        container.style.cursor = 'grabbing';
-                    }
-                });
-
-                container.addEventListener('mousemove', function(e) {
-                    if (isDragging && imgElements[eye]) {
-                        imageSettings[eye].translateX = e.clientX - startX;
-                        imageSettings[eye].translateY = e.clientY - startY;
-                        updateImageTransform(eye);
-                    }
-                });
-
-                container.addEventListener('mouseup', function() {
-                    isDragging = false;
-                    container.style.cursor = 'grab';
-                });
-
-                container.addEventListener('mouseleave', function() {
-                    isDragging = false;
-                    container.style.cursor = 'grab';
-                });
-
-                container.style.cursor = 'grab';
-            }
-
-            setupDragListeners(imageContainer, 'L');
-            setupDragListeners(leftImageContainer, 'L');
-            setupDragListeners(rightImageContainer, 'R');
-
-            // Double-click to reset image position
-            function setupDoubleClickReset(container, eye) {
-                container.addEventListener('dblclick', function() {
-                    resetImagePosition(eye);
-                });
-            }
-
-            setupDoubleClickReset(imageContainer, 'L');
-            setupDoubleClickReset(leftImageContainer, 'L');
-            setupDoubleClickReset(rightImageContainer, 'R');
-
             // Rotate and Zoom Buttons
             document.getElementById('rotateLeft').addEventListener('click', () => {
                 imageSettings[currentEye].rotation -= 5;
@@ -514,12 +527,16 @@
             });
 
             document.getElementById('zoomIn').addEventListener('click', () => {
-                imageSettings[currentEye].scale *= 1.1;
+                let newScale = imageSettings[currentEye].scale * 1.1;
+                newScale = Math.min(newScale, 10); // Constraint Scale
+                imageSettings[currentEye].scale = newScale;
                 updateImageTransform(currentEye);
             });
 
             document.getElementById('zoomOut').addEventListener('click', () => {
-                imageSettings[currentEye].scale /= 1.1;
+                let newScale = imageSettings[currentEye].scale / 1.1;
+                newScale = Math.max(newScale, 0.1); // Constraint Scale
+                imageSettings[currentEye].scale = newScale;
                 updateImageTransform(currentEye);
             });
 
@@ -636,6 +653,7 @@
                 });
             });
 
+            // Close Modal Functionality
             closeBtn.onclick = function() {
                 mapModal.style.display = 'none';
             };
