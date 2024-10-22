@@ -177,6 +177,16 @@
             height: auto;
             border-radius: 4px;
         }
+        .rename-input {
+            width: 70%;
+            padding: 4px;
+            font-size: 14px;
+            margin-right: 5px;
+        }
+        .rename-btn {
+            padding: 4px 8px;
+            font-size: 14px;
+        }
 
         /* Image Adjustment Panel Styles */
         .image-adjustments {
@@ -234,6 +244,16 @@
             width: 100%;
             padding: 8px;
             background-color: #4A90E2;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 5px;
+        }
+        .reset-button {
+            width: 100%;
+            padding: 8px;
+            background-color: #d9534f;
             color: white;
             border: none;
             border-radius: 4px;
@@ -423,6 +443,7 @@
                     <canvas id="histogramCanvas"></canvas>
                 </div>
                 <button class="auto-levels" id="autoLevels">Auto Levels</button>
+                <button class="reset-button" id="resetAdjustments">Reset</button>
                 
                 <div class="adjustment-group">
                     <div class="adjustment-row">
@@ -489,7 +510,7 @@
             const mapOptions = document.getElementById('mapOptions');
             const closeBtn = document.getElementsByClassName('close')[0];
             const histogramCanvas = document.getElementById('histogramCanvas');
-            const ctx = histogramCanvas.getContext('2d');
+            const histogramCtx = histogramCanvas.getContext('2d');
             const galleryAccordion = document.getElementById('galleryAccordion');
 
             // Image Adjustment Sliders
@@ -547,20 +568,39 @@
                 galleryItem.className = 'gallery-item';
                 galleryItem.innerHTML = `
                     <div class="gallery-item-header">
-                        <span>${name}</span>
-                        <button class="btn">Load</button>
+                        <span class="image-name">${name}</span>
+                        <div>
+                            <button class="btn rename-btn">Rename</button>
+                            <button class="btn load-btn">Load</button>
+                        </div>
                     </div>
                     <div class="gallery-item-content">
                         <img src="${imageDataUrl}" alt="${name}">
                     </div>
                 `;
 
-                galleryItem.querySelector('.gallery-item-header').addEventListener('click', function() {
-                    const content = this.nextElementSibling;
-                    content.classList.toggle('active');
+                const imageNameElement = galleryItem.querySelector('.image-name');
+                const renameBtn = galleryItem.querySelector('.rename-btn');
+                const loadBtn = galleryItem.querySelector('.load-btn');
+                const galleryContent = galleryItem.querySelector('.gallery-item-content');
+
+                galleryItem.querySelector('.gallery-item-header').addEventListener('click', function(e) {
+                    if (e.target !== renameBtn && e.target !== loadBtn) {
+                        galleryContent.classList.toggle('active');
+                    }
                 });
 
-                galleryItem.querySelector('button').addEventListener('click', function() {
+                renameBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const currentName = imageNameElement.textContent;
+                    const newName = prompt('Enter new name:', currentName);
+                    if (newName && newName.trim() !== '') {
+                        imageNameElement.textContent = newName.trim();
+                    }
+                });
+
+                loadBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
                     loadImageFromGallery(imageDataUrl);
                 });
 
@@ -574,6 +614,7 @@
                     images[currentEye] = imageDataUrl;
                     loadImageForSpecificEye(currentEye);
                     resetImagePosition(currentEye);
+                    resetAdjustments();
                 };
                 img.src = imageDataUrl;
             }
@@ -622,13 +663,132 @@
                     imageSettings[currentEye].adjustments[adjustment] = value;
                     this.nextElementSibling.textContent = value;
                     updateImageFilters(currentEye);
+                    updateHistogram();
                 });
             });
 
-            // Auto Levels Button (Not Implemented with CSS Filters)
+            // Reset Adjustments
+            function resetAdjustments() {
+                const defaultAdjustments = {
+                    exposure: 0,
+                    contrast: 0,
+                    saturation: 0,
+                    hue: 0,
+                    blur: 0
+                };
+                imageSettings[currentEye].adjustments = { ...defaultAdjustments };
+                Object.entries(adjustmentSliders).forEach(([adjustment, slider]) => {
+                    slider.value = defaultAdjustments[adjustment];
+                    slider.nextElementSibling.textContent = defaultAdjustments[adjustment];
+                });
+                updateImageFilters(currentEye);
+                updateHistogram();
+            }
+
+            document.getElementById('resetAdjustments').addEventListener('click', resetAdjustments);
+
+            // Auto Levels Functionality
             document.getElementById('autoLevels').addEventListener('click', function() {
-                alert('Auto Levels is not available with CSS filters.');
+                const img = imgElements[currentEye];
+                if (!img) return;
+
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+
+                // Downscale image for performance
+                const width = 256;
+                const aspectRatio = img.naturalHeight / img.naturalWidth;
+                canvas.width = width;
+                canvas.height = width * aspectRatio;
+
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+                let minLuminance = 255;
+                let maxLuminance = 0;
+
+                // Calculate luminance and find min/max
+                for (let i = 0; i < imageData.data.length; i += 4) {
+                    const r = imageData.data[i];
+                    const g = imageData.data[i + 1];
+                    const b = imageData.data[i + 2];
+                    const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+                    minLuminance = Math.min(minLuminance, luminance);
+                    maxLuminance = Math.max(maxLuminance, luminance);
+                }
+
+                // Calculate exposure and contrast adjustments
+                const exposureAdjustment = ((maxLuminance + minLuminance) / 2 - 127.5) / 127.5 * -100;
+                const contrastAdjustment = ((255 / (maxLuminance - minLuminance)) - 1) * 100;
+
+                // Clamp values
+                const exposure = Math.max(-100, Math.min(100, exposureAdjustment));
+                const contrast = Math.max(-100, Math.min(100, contrastAdjustment));
+
+                // Apply adjustments
+                imageSettings[currentEye].adjustments.exposure = exposure;
+                imageSettings[currentEye].adjustments.contrast = contrast;
+
+                // Update sliders
+                adjustmentSliders.exposure.value = exposure;
+                adjustmentSliders.exposure.nextElementSibling.textContent = Math.round(exposure);
+                adjustmentSliders.contrast.value = contrast;
+                adjustmentSliders.contrast.nextElementSibling.textContent = Math.round(contrast);
+
+                updateImageFilters(currentEye);
+                updateHistogram();
             });
+
+            // Histogram Drawing
+            function updateHistogram() {
+                const img = imgElements[currentEye];
+                if (!img) return;
+
+                // Set canvas dimensions
+                histogramCanvas.width = histogramCanvas.offsetWidth;
+                histogramCanvas.height = histogramCanvas.offsetHeight;
+
+                const ctx = histogramCtx;
+                const width = histogramCanvas.width;
+                const height = histogramCanvas.height;
+
+                // Clear canvas
+                ctx.clearRect(0, 0, width, height);
+
+                const tempCanvas = document.createElement('canvas');
+                const tempCtx = tempCanvas.getContext('2d');
+
+                // Downscale image for performance
+                tempCanvas.width = 256;
+                const aspectRatio = img.naturalHeight / img.naturalWidth;
+                tempCanvas.height = 256 * aspectRatio;
+
+                tempCtx.filter = img.style.filter;
+                tempCtx.drawImage(img, 0, 0, tempCanvas.width, tempCanvas.height);
+                const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+
+                // Initialize histogram data
+                const histogram = new Array(256).fill(0);
+
+                // Calculate luminance histogram
+                for (let i = 0; i < imageData.data.length; i += 4) {
+                    const r = imageData.data[i];
+                    const g = imageData.data[i + 1];
+                    const b = imageData.data[i + 2];
+                    const luminance = Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b);
+                    histogram[luminance]++;
+                }
+
+                // Find max value for scaling
+                const maxCount = Math.max(...histogram);
+
+                // Draw histogram
+                ctx.fillStyle = 'white';
+                for (let i = 0; i < 256; i++) {
+                    const barHeight = (histogram[i] / maxCount) * height;
+                    ctx.fillRect((i / 256) * width, height - barHeight, width / 256, barHeight);
+                }
+            }
 
             // Original Mouse Event Functions
             function setupMouseListeners(container, img, eye) {
@@ -777,6 +937,7 @@
                     setupMouseListeners(container, img, eye);
                     updateImageTransform(eye);
                     updateImageFilters(eye);
+                    updateHistogram();
                 }
             }
 
@@ -808,6 +969,7 @@
                             imgElements[currentEye] = img;
                             loadImageForSpecificEye(currentEye);
                             resetImagePosition(currentEye);
+                            resetAdjustments();
                             addToGallery(event.target.result, file.name);
                         };
                         img.src = event.target.result;
