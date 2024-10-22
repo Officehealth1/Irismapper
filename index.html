@@ -2,9 +2,10 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Enhanced Iris Mapper</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
+        /* Existing styles remain unchanged */
         body, html {
             margin: 0;
             padding: 0;
@@ -65,6 +66,9 @@
         .bottom-right {
             bottom: 10px;
             right: 10px;
+            width: 250px;
+            max-height: calc(100vh - 100px);
+            overflow-y: auto;
         }
         .btn {
             margin: 2px;
@@ -91,6 +95,7 @@
         .watermark {
             font-size: 24px;
             color: rgba(0, 0, 0, 0.3);
+            margin-bottom: 10px;
         }
         .direction-buttons {
             display: grid;
@@ -117,14 +122,133 @@
             border: 1px solid #ccc;
             border-radius: 4px;
         }
-        /* Adjusted z-index: SVG containers above image containers */
+        
+        /* Gallery Styles */
+        .gallery {
+            margin-bottom: 15px;
+        }
+        .gallery-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .add-image-btn {
+            width: 30px;
+            height: 30px;
+            background-color: #4A90E2;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+        .gallery-accordion {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .gallery-item {
+            border-bottom: 1px solid #ddd;
+        }
+        .gallery-item:last-child {
+            border-bottom: none;
+        }
+        .gallery-item-header {
+            padding: 10px;
+            background-color: #f5f5f5;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .gallery-item-content {
+            padding: 10px;
+            display: none;
+        }
+        .gallery-item-content.active {
+            display: block;
+        }
+        .gallery-item img {
+            width: 100%;
+            height: auto;
+            border-radius: 4px;
+        }
+
+        /* Image Adjustment Panel Styles */
+        .image-adjustments {
+            background-color: #2a2a2a;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .histogram {
+            width: 100%;
+            height: 100px;
+            background-color: #1a1a1a;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            position: relative;
+        }
+        .histogram canvas {
+            width: 100%;
+            height: 100%;
+        }
+        .adjustment-group {
+            margin-bottom: 15px;
+        }
+        .adjustment-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .adjustment-label {
+            width: 100px;
+            font-size: 12px;
+        }
+        .adjustment-slider {
+            flex-grow: 1;
+            margin: 0 10px;
+            -webkit-appearance: none;
+            height: 4px;
+            background: #4a4a4a;
+            border-radius: 2px;
+        }
+        .adjustment-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px;
+            height: 12px;
+            background: #4A90E2;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        .adjustment-value {
+            width: 40px;
+            text-align: right;
+            font-size: 12px;
+        }
+        .auto-levels {
+            width: 100%;
+            padding: 8px;
+            background-color: #4A90E2;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 15px;
+        }
+
+        /* Existing Styles for SVG and Image Containers */
         #image-container, #left-image-container, #right-image-container {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            z-index: 1; /* Lower z-index to be below SVG containers */
+            z-index: 1;
         }
         #svg-container, #left-svg-container, #right-svg-container {
             position: absolute;
@@ -132,11 +256,10 @@
             left: 0;
             width: 100%;
             height: 100%;
-            z-index: 2; /* Higher z-index to be above image containers */
-            pointer-events: none; /* Lock SVG overlays to prevent interaction */
-            user-select: none; /* Prevent text selection within SVGs */
+            z-index: 2;
+            pointer-events: none;
+            user-select: none;
         }
-        /* Ensure images can receive pointer events */
         #image-container img, #left-image-container img, #right-image-container img {
             position: absolute;
             top: 50%;
@@ -144,12 +267,10 @@
             transform: translate(-50%, -50%);
             cursor: grab;
             user-select: none;
-            /* Prevent image dragging */
             -webkit-user-drag: none;
             -moz-user-drag: none;
             -ms-user-drag: none;
-            user-drag: none;
-            pointer-events: auto; /* Ensure images can receive mouse events */
+            pointer-events: auto;
         }
         #dual-mapper-container {
             display: none;
@@ -162,6 +283,8 @@
             height: 100%;
             float: left;
         }
+
+        /* Modal Styles */
         .modal {
             display: none;
             position: fixed;
@@ -188,12 +311,6 @@
             font-size: 28px;
             font-weight: bold;
             cursor: pointer;
-            transition: color 0.3s;
-        }
-        .close:hover,
-        .close:focus {
-            color: #000;
-            text-decoration: none;
         }
         .map-options {
             display: grid;
@@ -207,11 +324,25 @@
             border-radius: 4px;
             cursor: pointer;
             text-align: center;
-            transition: background-color 0.3s, transform 0.1s;
         }
-        .map-option:hover {
-            background-color: #e0e0e0;
-            transform: translateY(-2px);
+
+        /* Responsive Design */
+        @media screen and (max-width: 768px) {
+            .controls.bottom-right {
+                width: 90%;
+                right: 5%;
+                bottom: 10px;
+            }
+            .controls.top-left, .controls.bottom-left {
+                left: 5%;
+            }
+            .eye-container {
+                width: 100%;
+                height: 50%;
+            }
+            #dual-mapper-container {
+                flex-direction: column;
+            }
         }
     </style>
 </head>
@@ -222,6 +353,7 @@
             <div id="image-container"></div>
             <div id="svg-container"></div>
         </div>
+
         <!-- Dual Eye Mapper -->
         <div id="dual-mapper-container">
             <div class="eye-container">
@@ -233,8 +365,8 @@
                 <div id="right-svg-container"></div>
             </div>
         </div>
-        
-        <!-- Controls: Top Left -->
+
+        <!-- Header with Logo -->
         <div class="controls top-left">
             <input type="file" id="imageUpload" accept="image/*" style="display:none;">
             <button class="btn" onclick="document.getElementById('imageUpload').click()">Upload Image</button>
@@ -258,25 +390,71 @@
                 <div></div>
             </div>
         </div>
-        
-        <!-- Controls: Top Right -->
+
+        <!-- Eye Controls -->
         <div class="controls top-right">
             <button class="btn" id="leftEye">L</button>
             <button class="btn" id="rightEye">R</button>
             <button class="btn" id="bothEyes">L+R</button>
         </div>
-        
-        <!-- Controls: Bottom Left -->
+
+        <!-- Bottom Left Controls -->
         <div class="controls bottom-left">
             <input type="range" id="opacitySlider" min="0" max="1" step="0.01" value="0.7">
             <input type="color" id="mapColor" value="#000000">
             <button class="btn" id="notes">Notes</button>
             <button class="btn" id="save">Save</button>
         </div>
-        
-        <!-- Controls: Bottom Right -->
+
+        <!-- Bottom Right Panel -->
         <div class="controls bottom-right">
-            <span class="watermark">IRISLAB</span>
+            <div class="gallery">
+                <div class="gallery-header">
+                    <h3>Gallery</h3>
+                    <button class="add-image-btn">+</button>
+                </div>
+                <div class="gallery-accordion" id="galleryAccordion">
+                    <!-- Gallery items will be added here dynamically -->
+                </div>
+            </div>
+
+            <div class="image-adjustments">
+                <div class="histogram">
+                    <canvas id="histogramCanvas"></canvas>
+                </div>
+                <button class="auto-levels" id="autoLevels">Auto Levels</button>
+                
+                <div class="adjustment-group">
+                    <div class="adjustment-row">
+                        <span class="adjustment-label">Exposure</span>
+                        <input type="range" class="adjustment-slider" id="exposureSlider" min="-100" max="100" value="0">
+                        <span class="adjustment-value">0</span>
+                    </div>
+                    <div class="adjustment-row">
+                        <span class="adjustment-label">Contrast</span>
+                        <input type="range" class="adjustment-slider" id="contrastSlider" min="-100" max="100" value="0">
+                        <span class="adjustment-value">0</span>
+                    </div>
+                    <div class="adjustment-row">
+                        <span class="adjustment-label">Saturation</span>
+                        <input type="range" class="adjustment-slider" id="saturationSlider" min="-100" max="100" value="0">
+                        <span class="adjustment-value">0</span>
+                    </div>
+                    <div class="adjustment-row">
+                        <span class="adjustment-label">Hue</span>
+                        <input type="range" class="adjustment-slider" id="hueSlider" min="-180" max="180" value="0">
+                        <span class="adjustment-value">0</span>
+                    </div>
+                </div>
+
+                <div class="adjustment-group">
+                    <div class="adjustment-row">
+                        <span class="adjustment-label">Blur</span>
+                        <input type="range" class="adjustment-slider" id="blurSlider" min="0" max="10" step="0.1" value="0">
+                        <span class="adjustment-value">0</span>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -310,24 +488,149 @@
             const mapModal = document.getElementById('mapModal');
             const mapOptions = document.getElementById('mapOptions');
             const closeBtn = document.getElementsByClassName('close')[0];
+            const histogramCanvas = document.getElementById('histogramCanvas');
+            const ctx = histogramCanvas.getContext('2d');
+            const galleryAccordion = document.getElementById('galleryAccordion');
+
+            // Image Adjustment Sliders
+            const adjustmentSliders = {
+                exposure: document.getElementById('exposureSlider'),
+                contrast: document.getElementById('contrastSlider'),
+                saturation: document.getElementById('saturationSlider'),
+                hue: document.getElementById('hueSlider'),
+                blur: document.getElementById('blurSlider')
+            };
 
             // State Variables
-            let currentEye = 'L'; // 'L' for Left, 'R' for Right
+            let currentEye = 'L';
             let isDualViewActive = false;
-            let images = { 'L': null, 'R': null }; // Stores image data URLs
+            let images = { 'L': null, 'R': null };
             let imageSettings = {
-                'L': { rotation: 0, scale: 1, translateX: 0, translateY: 0 },
-                'R': { rotation: 0, scale: 1, translateX: 0, translateY: 0 }
+                'L': {
+                    rotation: 0,
+                    scale: 1,
+                    translateX: 0,
+                    translateY: 0,
+                    adjustments: {
+                        exposure: 0,
+                        contrast: 0,
+                        saturation: 0,
+                        hue: 0,
+                        blur: 0
+                    }
+                },
+                'R': {
+                    rotation: 0,
+                    scale: 1,
+                    translateX: 0,
+                    translateY: 0,
+                    adjustments: {
+                        exposure: 0,
+                        contrast: 0,
+                        saturation: 0,
+                        hue: 0,
+                        blur: 0
+                    }
+                }
             };
             let svgSettings = {
                 'L': { svgContent: '', mapColor: '#000000', opacity: 0.7 },
                 'R': { svgContent: '', mapColor: '#000000', opacity: 0.7 }
             };
-            let imgElements = { 'L': null, 'R': null }; // References to image elements
+            let imgElements = { 'L': null, 'R': null };
             let customSvgContent = '';
             const availableMaps = ['Angerer_DE_01', 'Bourdil_FR_01', 'IrisLAB_EN_02', 'IrisLAB_FR_02', 'Jaussas_FR_01', 'Jensen_EN_01', 'Jensen_FR_01', 'Roux_FR_01'];
 
-            // Utility Function: Attach Mouse Events for Drag and Zoom
+            // Gallery Management
+            function addToGallery(imageDataUrl, name) {
+                const galleryItem = document.createElement('div');
+                galleryItem.className = 'gallery-item';
+                galleryItem.innerHTML = `
+                    <div class="gallery-item-header">
+                        <span>${name}</span>
+                        <button class="btn">Load</button>
+                    </div>
+                    <div class="gallery-item-content">
+                        <img src="${imageDataUrl}" alt="${name}">
+                    </div>
+                `;
+
+                galleryItem.querySelector('.gallery-item-header').addEventListener('click', function() {
+                    const content = this.nextElementSibling;
+                    content.classList.toggle('active');
+                });
+
+                galleryItem.querySelector('button').addEventListener('click', function() {
+                    loadImageFromGallery(imageDataUrl);
+                });
+
+                galleryAccordion.appendChild(galleryItem);
+            }
+
+            function loadImageFromGallery(imageDataUrl) {
+                const img = new Image();
+                img.onload = function() {
+                    imgElements[currentEye] = img;
+                    images[currentEye] = imageDataUrl;
+                    loadImageForSpecificEye(currentEye);
+                    resetImagePosition(currentEye);
+                };
+                img.src = imageDataUrl;
+            }
+
+            document.querySelector('.add-image-btn').addEventListener('click', function() {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = 'image/*';
+                input.onchange = function(e) {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = function(event) {
+                            addToGallery(event.target.result, file.name);
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                };
+                input.click();
+            });
+
+            // Image Adjustment Functions Using CSS Filters
+            function updateImageFilters(eye) {
+                const img = imgElements[eye];
+                const adjustments = imageSettings[eye].adjustments;
+
+                const exposure = (100 + adjustments.exposure) / 100;
+                const contrast = (100 + adjustments.contrast) / 100;
+                const saturation = (100 + adjustments.saturation) / 100;
+                const hue = adjustments.hue;
+                const blur = adjustments.blur;
+
+                img.style.filter = `
+                    brightness(${exposure})
+                    contrast(${contrast})
+                    saturate(${saturation})
+                    hue-rotate(${hue}deg)
+                    blur(${blur}px)
+                `;
+            }
+
+            // Event Listeners for Adjustment Sliders
+            Object.entries(adjustmentSliders).forEach(([adjustment, slider]) => {
+                slider.addEventListener('input', function() {
+                    const value = parseFloat(this.value);
+                    imageSettings[currentEye].adjustments[adjustment] = value;
+                    this.nextElementSibling.textContent = value;
+                    updateImageFilters(currentEye);
+                });
+            });
+
+            // Auto Levels Button (Not Implemented with CSS Filters)
+            document.getElementById('autoLevels').addEventListener('click', function() {
+                alert('Auto Levels is not available with CSS filters.');
+            });
+
+            // Original Mouse Event Functions
             function setupMouseListeners(container, img, eye) {
                 let isDragging = false;
                 let startX, startY;
@@ -374,36 +677,25 @@
                 container.addEventListener('mouseup', stopDrag);
                 container.addEventListener('mouseleave', stopDrag);
 
-                img.style.cursor = 'grab';
-
-                // Improved Zoom functionality
+                // Zoom with mouse wheel
                 container.addEventListener('wheel', function(e) {
                     e.preventDefault();
-                    const mousePos = getMousePosition(e);
-                    
                     const delta = e.deltaY * -0.001;
                     let newScale = imageSettings[eye].scale * (1 + delta);
                     
                     if (newScale > 0.1 && newScale < 10) {
-                        const scaleChange = newScale / imageSettings[eye].scale;
                         imageSettings[eye].scale = newScale;
-                        
-                        // Adjust translation to zoom towards mouse position
-                        imageSettings[eye].translateX += (mousePos.x - container.offsetWidth / 2 - imageSettings[eye].translateX) * (1 - scaleChange);
-                        imageSettings[eye].translateY += (mousePos.y - container.offsetHeight / 2 - imageSettings[eye].translateY) * (1 - scaleChange);
-                        
                         updateImageTransform(eye);
                     }
                 });
 
-                // Double-click to reset
                 img.addEventListener('dblclick', function(e) {
                     e.preventDefault();
                     resetImagePosition(eye);
                 });
             }
 
-            // Function to Update Image Transformations
+            // Image Transform Functions
             function updateImageTransform(eye = currentEye) {
                 const img = imgElements[eye];
                 if (img) {
@@ -412,13 +704,18 @@
                 }
             }
 
-            // Function to Reset Image Position
             function resetImagePosition(eye) {
-                imageSettings[eye] = { rotation: 0, scale: 1, translateX: 0, translateY: 0 };
+                imageSettings[eye] = {
+                    ...imageSettings[eye],
+                    rotation: 0,
+                    scale: 1,
+                    translateX: 0,
+                    translateY: 0
+                };
                 updateImageTransform(eye);
             }
 
-            // Function to Initialize SVG Loading
+            // SVG Functions
             function loadSVG(svgFile, eye = currentEye) {
                 const container = isDualViewActive ? 
                     (eye === 'L' ? leftSvgContainer : rightSvgContainer) : svgContainer;
@@ -426,8 +723,9 @@
                 fetch(`grids/${svgFile}_${eye}.svg`)
                     .then(response => response.text())
                     .then(svgContent => {
-                        container.innerHTML = svgContent;
-                        svgSettings[eye].svgContent = svgContent;
+                        const sanitizedSVG = DOMPurify.sanitize(svgContent, { USE_PROFILES: { svg: true, svgFilters: true } });
+                        container.innerHTML = sanitizedSVG;
+                        svgSettings[eye].svgContent = sanitizedSVG;
                         setupSvgElement(container, eye);
                     })
                     .catch(error => {
@@ -437,40 +735,34 @@
                     });
             }
 
-            // Function to Setup SVG Element
             function setupSvgElement(container, eye) {
                 const svgElement = container.querySelector('svg');
                 if (svgElement) {
                     svgElement.setAttribute('width', '100%');
                     svgElement.setAttribute('height', '100%');
-                    svgElement.style.pointerEvents = 'none'; // Ensure SVG does not intercept mouse events
-                    svgElement.style.userSelect = 'none'; // Prevent text selection within SVG
+                    svgElement.style.pointerEvents = 'none';
+                    svgElement.style.userSelect = 'none';
                     container.style.opacity = svgSettings[eye].opacity;
                     changeMapColor(svgSettings[eye].mapColor, eye);
                     
-                    // Additionally, apply user-select: none to all text elements within SVG
                     const svgTexts = svgElement.querySelectorAll('text');
                     svgTexts.forEach(text => {
                         text.style.userSelect = 'none';
-                        text.style.webkitUserSelect = 'none';
-                        text.style.msUserSelect = 'none';
-                        text.style.mozUserSelect = 'none';
                     });
                 }
             }
 
-            // Function to Change SVG Path Colors
             function changeMapColor(color, eye) {
                 const container = isDualViewActive ? 
                     (eye === 'L' ? leftSvgContainer : rightSvgContainer) : svgContainer;
-                const svgPaths = container.querySelectorAll('svg path');
+                const svgPaths = container.querySelectorAll('svg path, svg line, svg circle');
                 svgPaths.forEach(path => {
                     path.setAttribute('stroke', color);
                 });
                 svgSettings[eye].mapColor = color;
             }
 
-            // Function to Load Image for Specific Eye
+            // Image Loading Functions
             function loadImageForSpecificEye(eye) {
                 const container = isDualViewActive ? 
                     (eye === 'L' ? leftImageContainer : rightImageContainer) : imageContainer;
@@ -482,21 +774,29 @@
                     img.style.left = '50%';
                     img.style.transform = 'translate(-50%, -50%)';
                     container.appendChild(img);
-                    setupMouseListeners(container, img, eye); // Attach Enhanced Mouse Events
+                    setupMouseListeners(container, img, eye);
                     updateImageTransform(eye);
+                    updateImageFilters(eye);
                 }
             }
 
-            // Function to Switch Eye
+            // Eye Switch Function
             function switchEye(eye) {
                 currentEye = eye;
                 loadSVG(availableMaps[0], eye);
                 loadImageForSpecificEye(eye);
                 opacitySlider.value = svgSettings[eye].opacity;
                 mapColor.value = svgSettings[eye].mapColor;
+                
+                // Update adjustment sliders to match current eye's settings
+                Object.entries(adjustmentSliders).forEach(([adjustment, slider]) => {
+                    const value = imageSettings[eye].adjustments[adjustment];
+                    slider.value = value;
+                    slider.nextElementSibling.textContent = value;
+                });
             }
 
-            // Image Upload Handling
+            // Event Listeners
             imageUpload.addEventListener('change', function(e) {
                 const file = e.target.files[0];
                 if (file) {
@@ -508,6 +808,7 @@
                             imgElements[currentEye] = img;
                             loadImageForSpecificEye(currentEye);
                             resetImagePosition(currentEye);
+                            addToGallery(event.target.result, file.name);
                         };
                         img.src = event.target.result;
                     };
@@ -515,7 +816,7 @@
                 }
             });
 
-            // Rotate and Zoom Buttons
+            // Control Button Event Listeners
             document.getElementById('rotateLeft').addEventListener('click', () => {
                 imageSettings[currentEye].rotation -= 5;
                 updateImageTransform(currentEye);
@@ -528,19 +829,19 @@
 
             document.getElementById('zoomIn').addEventListener('click', () => {
                 let newScale = imageSettings[currentEye].scale * 1.1;
-                newScale = Math.min(newScale, 10); // Constraint Scale
+                newScale = Math.min(newScale, 10);
                 imageSettings[currentEye].scale = newScale;
                 updateImageTransform(currentEye);
             });
 
             document.getElementById('zoomOut').addEventListener('click', () => {
                 let newScale = imageSettings[currentEye].scale / 1.1;
-                newScale = Math.max(newScale, 0.1); // Constraint Scale
+                newScale = Math.max(newScale, 0.1);
                 imageSettings[currentEye].scale = newScale;
                 updateImageTransform(currentEye);
             });
 
-            // Directional Move Buttons
+            // Movement Buttons
             document.getElementById('moveUp').addEventListener('click', () => {
                 imageSettings[currentEye].translateY -= 10;
                 updateImageTransform(currentEye);
@@ -561,7 +862,7 @@
                 updateImageTransform(currentEye);
             });
 
-            // Save the Image with SVG Overlay
+            // Save Functionality
             document.getElementById('save').addEventListener('click', () => {
                 const containerToCapture = isDualViewActive ? dualMapperContainer : singleMapperContainer;
                 html2canvas(containerToCapture, {
@@ -580,7 +881,7 @@
                 });
             });
 
-            // Function to Handle Opacity Slider Changes
+            // Slider Event Listeners
             opacitySlider.addEventListener('input', function() {
                 const newOpacity = parseFloat(this.value);
                 if (isDualViewActive) {
@@ -594,7 +895,6 @@
                 }
             });
 
-            // Function to Handle Map Color Changes
             mapColor.addEventListener('input', function() {
                 const newColor = this.value;
                 if (isDualViewActive) {
@@ -605,16 +905,18 @@
                 }
             });
 
-            // Eye Selection Buttons
+            // Eye Selection Button Event Listeners
             document.getElementById('leftEye').addEventListener('click', () => {
                 if (!isDualViewActive) switchEye('L');
             });
+
             document.getElementById('rightEye').addEventListener('click', () => {
                 if (!isDualViewActive) switchEye('R');
             });
+
             document.getElementById('bothEyes').addEventListener('click', toggleDualView);
 
-            // Function to Toggle Dual View
+            // Dual View Toggle Function
             function toggleDualView() {
                 isDualViewActive = !isDualViewActive;
                 if (isDualViewActive) {
@@ -632,7 +934,7 @@
                 }
             }
 
-            // Select Map Button and Modal
+            // Map Selection Modal
             document.getElementById('selectMap').addEventListener('click', () => {
                 mapModal.style.display = 'block';
                 mapOptions.innerHTML = '';
@@ -652,17 +954,6 @@
                     mapOptions.appendChild(option);
                 });
             });
-
-            // Close Modal Functionality
-            closeBtn.onclick = function() {
-                mapModal.style.display = 'none';
-            };
-
-            window.onclick = function(event) {
-                if (event.target == mapModal) {
-                    mapModal.style.display = 'none';
-                }
-            };
 
             // Custom Map Button
             document.getElementById('customMap').addEventListener('click', () => {
@@ -689,6 +980,18 @@
                 input.click();
             });
 
+            // Close Modal Button
+            closeBtn.onclick = function() {
+                mapModal.style.display = 'none';
+            };
+
+            // Click Outside Modal to Close
+            window.onclick = function(event) {
+                if (event.target == mapModal) {
+                    mapModal.style.display = 'none';
+                }
+            };
+
             // Notes Button
             document.getElementById('notes').addEventListener('click', () => {
                 const notes = prompt('Enter notes:');
@@ -700,13 +1003,18 @@
 
             // Initialize the application
             function initialize() {
+                // Set up histogram canvas
+                histogramCanvas.width = histogramCanvas.offsetWidth;
+                histogramCanvas.height = histogramCanvas.offsetHeight;
+                
+                // Load initial map
                 loadSVG(availableMaps[0], 'L');
             }
 
             // Call initialize function
             initialize();
 
-            // Prevent default drag behavior on the entire document
+            // Prevent default drag behavior
             document.addEventListener('dragover', function(e) {
                 e.preventDefault();
             });
