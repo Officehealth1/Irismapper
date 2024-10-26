@@ -2,456 +2,73 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Enhanced Iris Mapper</title>
+    <title>Iris Mapper</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        /* General Styles */
-        body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            overflow: hidden;
-            background-color: #f0f0f0;
-        }
-        .app-container {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            background-image: 
-                linear-gradient(45deg, #e0e0e0 25%, transparent 25%),
-                linear-gradient(-45deg, #e0e0e0 25%, transparent 25%),
-                linear-gradient(45deg, transparent 75%, #e0e0e0 75%),
-                linear-gradient(-45deg, transparent 75%, #e0e0e0 75%);
-            background-size: 20px 20px;
-            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
-        }
-        .iris-container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-        }
-        /* Controls Styles */
-        .controls {
-            position: absolute;
-            padding: 10px;
-            background-color: rgba(255, 255, 255, 0.9);
-            border-radius: 8px;
-            z-index: 10;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        .top-left {
-            top: 170px; /* Adjusted to be under the logo */
-            left: 10px;
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-            cursor: default; /* Default cursor */
-        }
-        .top-right {
-            top: 10px;
-            right: 10px;
-            display: flex;
-            flex-direction: row;
-        }
-        .bottom-left {
-            bottom: 10px;
-            left: 10px;
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-        }
-        .bottom-right {
-            bottom: 10px;
-            right: 10px;
-            width: 250px;
-            max-height: calc(100vh - 100px);
-            overflow-y: auto;
-        }
-        .btn {
-            margin: 2px;
-            padding: 8px 12px;
-            background-color: #4A90E2;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-            transition: background-color 0.3s, transform 0.1s;
-        }
-        .top-left .btn, .bottom-left .btn {
-            width: 100%;
-            text-align: left;
-        }
-        .btn:hover {
-            background-color: #3A80D2;
-            transform: translateY(-1px);
-        }
-        .btn:active {
-            transform: translateY(1px);
-        }
-        .direction-buttons {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 4px;
-            width: 100%;
-        }
-        .direction-buttons .btn {
-            text-align: center;
-            padding: 10px;
-        }
-        .rotation-buttons {
-            display: flex;
-            justify-content: space-between;
-            width: 100%;
-        }
-        .rotation-buttons .btn {
-            width: 48%;
-        }
-        .bottom-left input {
-            width: 100%;
-            margin: 4px 0;
-            padding: 6px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-        /* Gallery Styles */
-        .gallery {
-            margin-bottom: 15px;
-        }
-        .gallery-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        .add-image-btn {
-            width: 30px;
-            height: 30px;
-            background-color: #4A90E2;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-        }
-        .gallery-accordion {
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            overflow: hidden;
-        }
-        .gallery-item {
-            border-bottom: 1px solid #ddd;
-        }
-        .gallery-item:last-child {
-            border-bottom: none;
-        }
-        .gallery-item-header {
-            padding: 10px;
-            background-color: #f5f5f5;
-            cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .gallery-item-content {
-            padding: 10px;
-            display: none;
-        }
-        .gallery-item-content.active {
-            display: block;
-        }
-        .gallery-item img {
-            width: 100%;
-            height: auto;
-            border-radius: 4px;
-        }
-        .rename-btn {
-            padding: 4px 8px;
-            font-size: 14px;
-        }
-        /* Image Adjustment Panel Styles */
-        .image-adjustments {
-            background-color: #2a2a2a;
-            color: white;
-            padding: 15px;
-            border-radius: 8px;
-        }
-        .histogram {
-            width: 100%;
-            height: 100px;
-            background-color: #1a1a1a;
-            border-radius: 4px;
-            margin-bottom: 15px;
-            position: relative;
-        }
-        .histogram canvas {
-            width: 100%;
-            height: 100%;
-        }
-        .adjustment-group {
-            margin-bottom: 15px;
-        }
-        .adjustment-row {
-            display: flex;
-            align-items: center;
-            margin-bottom: 8px;
-        }
-        .adjustment-label {
-            width: 100px;
-            font-size: 12px;
-        }
-        .adjustment-slider {
-            flex-grow: 1;
-            margin: 0 10px;
-            -webkit-appearance: none;
-            height: 4px;
-            background: #4a4a4a;
-            border-radius: 2px;
-        }
-        .adjustment-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 12px;
-            height: 12px;
-            background: #4A90E2;
-            border-radius: 50%;
-            cursor: pointer;
-        }
-        .adjustment-value {
-            width: 40px;
-            text-align: right;
-            font-size: 12px;
-        }
-        .auto-levels {
-            width: 100%;
-            padding: 8px;
-            background-color: #4A90E2;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            margin-bottom: 5px;
-        }
-        .reset-button {
-            width: 100%;
-            padding: 8px;
-            background-color: #d9534f;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            margin-bottom: 15px;
-        }
-        /* Image and SVG Containers */
-        #image-container, #left-image-container, #right-image-container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 1;
-        }
-        #svg-container, #left-svg-container, #right-svg-container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 2;
-            pointer-events: none;
-            user-select: none;
-        }
-        /* Canvas Styles */
-        .image-canvas {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            cursor: grab;
-            user-select: none;
-            -webkit-user-drag: none;
-            -moz-user-drag: none;
-            -ms-user-drag: none;
-            pointer-events: auto;
-            image-rendering: auto;
-            transform-origin: center center;
-        }
-        #dual-mapper-container {
-            display: none;
-            width: 100%;
-            height: 100%;
-        }
-        .eye-container {
-            position: relative;
-            width: 50%;
-            height: 100%;
-            float: left;
-        }
-        /* Modal Styles */
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.5);
-        }
-        .modal-content {
-            background-color: #fefefe;
-            margin: 10% auto;
-            padding: 20px;
-            border: 1px solid #888;
-            width: 80%;
-            max-width: 600px;
-            border-radius: 8px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-        }
-        .close {
-            color: #aaa;
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-        .map-options {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 10px;
-            margin-top: 20px;
-        }
-        .map-option {
-            padding: 10px;
-            background-color: #f0f0f0;
-            border-radius: 4px;
-            cursor: pointer;
-            text-align: center;
-        }
-        /* Logo Styles */
-        .logo {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            width: 150px;
-            height: auto;
-            z-index: 15;
-        }
-        /* Progress Indicator */
-        .progress-indicator {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.5);
-            z-index: 1001;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            display: none;
-        }
-        .progress-indicator .spinner {
-            border: 8px solid #f3f3f3;
-            border-top: 8px solid #4A90E2;
-            border-radius: 50%;
-            width: 60px;
-            height: 60px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        /* Draggable Cursor */
-        .draggable {
-            cursor: move;
-        }
-        /* Responsive Design */
-        @media screen and (max-width: 768px) {
-            .controls.bottom-right {
-                width: 90%;
-                right: 5%;
-                bottom: 10px;
-            }
-            .controls.top-left, .controls.bottom-left {
-                left: 5%;
-            }
-            .eye-container {
-                width: 100%;
-                height: 50%;
-            }
-            #dual-mapper-container {
-                flex-direction: column;
-            }
-        }
-    </style>
+    <!-- External Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/2.4.3/purify.min.js"></script>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="app-container">
-        <!-- Logo -->
         <img src="grids/watermark.png" alt="Logo" class="logo">
 
-        <!-- Single Eye Mapper -->
         <div id="single-mapper-container" class="iris-container">
-            <div id="image-container"></div>
             <div id="svg-container"></div>
+            <div id="image-container"></div>
         </div>
 
-        <!-- Dual Eye Mapper -->
-        <div id="dual-mapper-container">
+        <div id="dual-mapper-container" style="display: none;">
             <div class="eye-container">
-                <div id="left-image-container"></div>
                 <div id="left-svg-container"></div>
+                <div id="left-image-container"></div>
             </div>
             <div class="eye-container">
-                <div id="right-image-container"></div>
                 <div id="right-svg-container"></div>
+                <div id="right-image-container"></div>
             </div>
         </div>
 
-        <!-- Controls -->
-        <div class="controls top-left" id="menuContainer">
-            <input type="file" id="imageUpload" accept="image/*" multiple style="display:none;">
-            <button class="btn" onclick="document.getElementById('imageUpload').click()">Upload Image(s)</button>
-            <button class="btn" id="selectMap">Select Map</button>
-            <button class="btn" id="customMap">Custom Map</button>
-            <button class="btn" id="zoomIn">Zoom +</button>
-            <button class="btn" id="zoomOut">Zoom -</button>
-            <div class="rotation-buttons">
-                <button class="btn" id="rotateLeft">↺</button>
-                <button class="btn" id="rotateRight">↻</button>
-            </div>
-            <button class="btn" id="resetZoom">Reset Zoom</button>
-            <div class="direction-buttons">
-                <div></div>
-                <button class="btn" id="moveUp">↑</button>
-                <div></div>
-                <button class="btn" id="moveLeft">←</button>
-                <div></div>
-                <button class="btn" id="moveRight">→</button>
-                <div></div>
-                <button class="btn" id="moveDown">↓</button>
-                <div></div>
-            </div>
-            <!-- Toggle Drag Button -->
-            <button class="btn" id="toggleDrag">Enable Menu Drag</button>
-        </div>
+<!-- Top-Left Controls -->
+<div class="controls top-left" id="menuContainer">
+    <input type="file" id="imageUpload" accept="image/*" multiple style="display:none;">
+    <button class="btn" onclick="document.getElementById('imageUpload').click()">Upload Image(s)</button>
+    <button class="btn" id="selectMap">Select Map</button>
+    <button class="btn" id="customMap">Custom Map</button>
+    
+    <!-- Zoom Controls: Now Side by Side and Aligned -->
+    <div class="zoom-controls">
+        <button class="btn" id="zoomIn">Zoom +</button>
+        <button class="btn" id="zoomOut">Zoom -</button>
+    </div>
+    
+    <!-- Rotation Buttons: Side by Side and Aligned -->
+    <div class="rotation-buttons">
+        <button class="btn" id="rotateLeft">↺</button>
+        <button class="btn" id="rotateRight">↻</button>
+    </div>
+    
+    <!-- Direction Buttons: Centered -->
+    <div class="direction-buttons">
+        <div></div>
+        <button class="btn" id="moveUp">↑</button>
+        <div></div>
+        <button class="btn" id="moveLeft">←</button>
+        <div></div>
+        <button class="btn" id="moveRight">→</button>
+        <div></div>
+        <button class="btn" id="moveDown">↓</button>
+        <div></div>
+    </div>
+</div>
 
-        <!-- Eye Controls -->
+
         <div class="controls top-right">
             <button class="btn" id="leftEye">L</button>
             <button class="btn" id="rightEye">R</button>
             <button class="btn" id="bothEyes">L+R</button>
         </div>
 
-        <!-- Bottom Left Controls -->
         <div class="controls bottom-left">
             <input type="range" id="opacitySlider" min="0" max="1" step="0.01" value="0.7">
             <input type="color" id="mapColor" value="#000000">
@@ -459,7 +76,6 @@
             <button class="btn" id="save">Save</button>
         </div>
 
-        <!-- Bottom Right Panel -->
         <div class="controls bottom-right">
             <div class="gallery">
                 <div class="gallery-header">
@@ -467,7 +83,6 @@
                     <button class="add-image-btn">+</button>
                 </div>
                 <div class="gallery-accordion" id="galleryAccordion">
-                    <!-- Gallery items will be added here dynamically -->
                 </div>
             </div>
 
@@ -481,43 +96,76 @@
                 <div class="adjustment-group">
                     <div class="adjustment-row">
                         <span class="adjustment-label">Exposure</span>
-                        <input type="range" class="adjustment-slider" id="exposureSlider" min="-100" max="100" value="0">
-                        <span class="adjustment-value">0</span>
+                        <div class="adjustment-control">
+                            <input type="range" class="adjustment-slider" id="exposureSlider" min="-100" max="100" value="0">
+                            <span class="adjustment-value">0</span>
+                        </div>
                     </div>
                     <div class="adjustment-row">
                         <span class="adjustment-label">Contrast</span>
-                        <input type="range" class="adjustment-slider" id="contrastSlider" min="-100" max="100" value="0">
-                        <span class="adjustment-value">0</span>
+                        <div class="adjustment-control">
+                            <input type="range" class="adjustment-slider" id="contrastSlider" min="-100" max="100" value="0">
+                            <span class="adjustment-value">0</span>
+                        </div>
                     </div>
                     <div class="adjustment-row">
                         <span class="adjustment-label">Saturation</span>
-                        <input type="range" class="adjustment-slider" id="saturationSlider" min="-100" max="100" value="0">
-                        <span class="adjustment-value">0</span>
+                        <div class="adjustment-control">
+                            <input type="range" class="adjustment-slider" id="saturationSlider" min="-100" max="100" value="0">
+                            <span class="adjustment-value">0</span>
+                        </div>
                     </div>
                     <div class="adjustment-row">
                         <span class="adjustment-label">Hue</span>
-                        <input type="range" class="adjustment-slider" id="hueSlider" min="-180" max="180" value="0">
-                        <span class="adjustment-value">0</span>
+                        <div class="adjustment-control">
+                            <input type="range" class="adjustment-slider" id="hueSlider" min="-180" max="180" value="0">
+                            <span class="adjustment-value">0</span>
+                        </div>
                     </div>
-                </div>
-
-                <div class="adjustment-group">
+                    <div class="adjustment-row">
+                        <span class="adjustment-label">Shadows</span>
+                        <div class="adjustment-control">
+                            <input type="range" class="adjustment-slider" id="shadowsSlider" min="-100" max="100" value="0">
+                            <span class="adjustment-value">0</span>
+                        </div>
+                    </div>
+                    <div class="adjustment-row">
+                        <span class="adjustment-label">Highlights</span>
+                        <div class="adjustment-control">
+                            <input type="range" class="adjustment-slider" id="highlightsSlider" min="-100" max="100" value="0">
+                            <span class="adjustment-value">0</span>
+                        </div>
+                    </div>
+                    <div class="adjustment-row">
+                        <span class="adjustment-label">Temperature</span>
+                        <div class="adjustment-control">
+                            <input type="range" class="adjustment-slider" id="temperatureSlider" min="-100" max="100" value="0">
+                            <span class="adjustment-value">0</span>
+                        </div>
+                    </div>
+                    <div class="adjustment-row">
+                        <span class="adjustment-label">Sharpness</span>
+                        <div class="adjustment-control">
+                            <input type="range" class="adjustment-slider" id="sharpnessSlider" min="0" max="100" value="0">
+                            <span class="adjustment-value">0</span>
+                        </div>
+                    </div>
                     <div class="adjustment-row">
                         <span class="adjustment-label">Blur</span>
-                        <input type="range" class="adjustment-slider" id="blurSlider" min="0" max="10" step="0.1" value="0">
-                        <span class="adjustment-value">0</span>
+                        <div class="adjustment-control">
+                            <input type="range" class="adjustment-slider" id="blurSlider" min="0" max="10" step="0.1" value="0">
+                            <span class="adjustment-value">0</span>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Progress Indicator -->
         <div class="progress-indicator" id="progressIndicator">
             <div class="spinner"></div>
         </div>
     </div>
 
-    <!-- Map Selection Modal -->
     <div id="mapModal" class="modal">
         <div class="modal-content">
             <span class="close">&times;</span>
@@ -526,821 +174,32 @@
         </div>
     </div>
 
-    <!-- External Libraries -->
-    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/2.4.3/purify.min.js"></script>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Element References
-            const singleMapperContainer = document.getElementById('single-mapper-container');
-            const dualMapperContainer = document.getElementById('dual-mapper-container');
-            const imageContainer = document.getElementById('image-container');
-            const svgContainer = document.getElementById('svg-container');
-            const leftImageContainer = document.getElementById('left-image-container');
-            const rightImageContainer = document.getElementById('right-image-container');
-            const leftSvgContainer = document.getElementById('left-svg-container');
-            const rightSvgContainer = document.getElementById('right-svg-container');
-            const imageUpload = document.getElementById('imageUpload');
-            const opacitySlider = document.getElementById('opacitySlider');
-            const mapColor = document.getElementById('mapColor');
-            const mapModal = document.getElementById('mapModal');
-            const mapOptions = document.getElementById('mapOptions');
-            const closeBtn = document.getElementsByClassName('close')[0];
-            const histogramCanvas = document.getElementById('histogramCanvas');
-            const histogramCtx = histogramCanvas.getContext('2d');
-            const galleryAccordion = document.getElementById('galleryAccordion');
-            const progressIndicator = document.getElementById('progressIndicator');
-            const menuContainer = document.getElementById('menuContainer');
-            const toggleDragBtn = document.getElementById('toggleDrag');
-
-            // Image Adjustment Sliders
-            const adjustmentSliders = {
-                exposure: document.getElementById('exposureSlider'),
-                contrast: document.getElementById('contrastSlider'),
-                saturation: document.getElementById('saturationSlider'),
-                hue: document.getElementById('hueSlider'),
-                blur: document.getElementById('blurSlider')
-            };
-
-            // State Variables
-            let currentEye = 'L';
-            let isDualViewActive = false;
-            let images = { 'L': null, 'R': null };
-            let imageSettings = {
-                'L': {
-                    rotation: 0,
-                    scale: 1,
-                    translateX: 0,
-                    translateY: 0,
-                    adjustments: {
-                        exposure: 0,
-                        contrast: 0,
-                        saturation: 0,
-                        hue: 0,
-                        blur: 0
-                    },
-                    canvas: null,
-                    context: null,
-                    image: null
-                },
-                'R': {
-                    rotation: 0,
-                    scale: 1,
-                    translateX: 0,
-                    translateY: 0,
-                    adjustments: {
-                        exposure: 0,
-                        contrast: 0,
-                        saturation: 0,
-                        hue: 0,
-                        blur: 0
-                    },
-                    canvas: null,
-                    context: null,
-                    image: null
-                }
-            };
-            let svgSettings = {
-                'L': { svgContent: '', mapColor: '#000000', opacity: 0.7 },
-                'R': { svgContent: '', mapColor: '#000000', opacity: 0.7 }
-            };
-            let customSvgContent = '';
-            const availableMaps = ['Angerer_DE_01', 'Bourdil_FR_01', 'IrisLAB_EN_02', 'IrisLAB_FR_02', 'Jaussas_FR_01', 'Jensen_EN_01', 'Jensen_FR_01', 'Roux_FR_01'];
-
-            // Draggable Menu
-            let isMenuDraggable = false;
-            let isDraggingMenu = false;
-            let menuStartX, menuStartY, menuOffsetX, menuOffsetY;
-
-            toggleDragBtn.addEventListener('click', function() {
-                isMenuDraggable = !isMenuDraggable;
-                if (isMenuDraggable) {
-                    menuContainer.classList.add('draggable');
-                    toggleDragBtn.textContent = 'Disable Menu Drag';
-                } else {
-                    menuContainer.classList.remove('draggable');
-                    toggleDragBtn.textContent = 'Enable Menu Drag';
-                }
-            });
-
-            menuContainer.addEventListener('mousedown', function(e) {
-                if (isMenuDraggable && e.target !== toggleDragBtn) {
-                    isDraggingMenu = true;
-                    menuStartX = e.clientX;
-                    menuStartY = e.clientY;
-                    const rect = menuContainer.getBoundingClientRect();
-                    menuOffsetX = rect.left;
-                    menuOffsetY = rect.top;
-                }
-            });
-
-            document.addEventListener('mousemove', function(e) {
-                if (isDraggingMenu) {
-                    const dx = e.clientX - menuStartX;
-                    const dy = e.clientY - menuStartY;
-                    menuContainer.style.left = `${menuOffsetX + dx}px`;
-                    menuContainer.style.top = `${menuOffsetY + dy}px`;
-                }
-            });
-
-            document.addEventListener('mouseup', function(e) {
-                if (isDraggingMenu) {
-                    isDraggingMenu = false;
-                }
-            });
-
-            // Gallery Management
-            function addToGallery(imageDataUrl, name) {
-                const galleryItem = document.createElement('div');
-                galleryItem.className = 'gallery-item';
-                galleryItem.innerHTML = `
-                    <div class="gallery-item-header">
-                        <span class="image-name">${name}</span>
-                        <div>
-                            <button class="btn rename-btn">Rename</button>
-                            <button class="btn load-btn">Load</button>
-                        </div>
-                    </div>
-                    <div class="gallery-item-content">
-                        <img src="${imageDataUrl}" alt="${name}">
-                    </div>
-                `;
-
-                const imageNameElement = galleryItem.querySelector('.image-name');
-                const renameBtn = galleryItem.querySelector('.rename-btn');
-                const loadBtn = galleryItem.querySelector('.load-btn');
-                const galleryContent = galleryItem.querySelector('.gallery-item-content');
-
-                galleryItem.querySelector('.gallery-item-header').addEventListener('click', function(e) {
-                    if (e.target !== renameBtn && e.target !== loadBtn) {
-                        galleryContent.classList.toggle('active');
-                    }
-                });
-
-                renameBtn.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    const currentName = imageNameElement.textContent;
-                    const newName = prompt('Enter new name:', currentName);
-                    if (newName && newName.trim() !== '') {
-                        imageNameElement.textContent = newName.trim();
-                    }
-                });
-
-                loadBtn.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    loadImageFromGallery(imageDataUrl);
-                });
-
-                galleryAccordion.appendChild(galleryItem);
-            }
-
-            function loadImageFromGallery(imageDataUrl) {
-                const img = new Image();
-                img.onload = function() {
-                    imageSettings[currentEye].image = img;
-                    createCanvasForEye(currentEye);
-                    loadImageForSpecificEye(currentEye);
-                    resetImagePosition(currentEye);
-                    resetAdjustments();
-                };
-                img.src = imageDataUrl;
-            }
-
-            document.querySelector('.add-image-btn').addEventListener('click', function() {
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.accept = 'image/*';
-                input.multiple = true;
-                input.onchange = function(e) {
-                    const files = e.target.files;
-                    for (let i = 0; i < files.length; i++) {
-                        const file = files[i];
-                        const reader = new FileReader();
-                        reader.onload = function(event) {
-                            addToGallery(event.target.result, file.name);
-                        };
-                        reader.readAsDataURL(file);
-                    }
-                };
-                input.click();
-            });
-
-            // Image Adjustment Functions Using Canvas
-            function updateCanvasImage(eye) {
-                const settings = imageSettings[eye];
-                const ctx = settings.context;
-                const img = settings.image;
-                const canvas = settings.canvas;
-                if (!ctx || !img) return;
-
-                const width = img.naturalWidth;
-                const height = img.naturalHeight;
-
-                canvas.width = width;
-                canvas.height = height;
-
-                ctx.save();
-
-                // Apply adjustments
-                ctx.filter = `
-                    brightness(${(100 + settings.adjustments.exposure) / 100})
-                    contrast(${(100 + settings.adjustments.contrast) / 100})
-                    saturate(${(100 + settings.adjustments.saturation) / 100})
-                    hue-rotate(${settings.adjustments.hue}deg)
-                    blur(${settings.adjustments.blur}px)
-                `;
-
-                ctx.drawImage(img, 0, 0);
-
-                ctx.restore();
-
-                updateCanvasTransform(eye);
-                updateHistogram();
-            }
-
-            // Event Listeners for Adjustment Sliders
-            Object.entries(adjustmentSliders).forEach(([adjustment, slider]) => {
-                slider.addEventListener('input', function() {
-                    const value = parseFloat(this.value);
-                    imageSettings[currentEye].adjustments[adjustment] = value;
-                    this.nextElementSibling.textContent = value;
-                    updateCanvasImage(currentEye);
-                });
-            });
-
-            // Reset Adjustments
-            function resetAdjustments() {
-                const defaultAdjustments = {
-                    exposure: 0,
-                    contrast: 0,
-                    saturation: 0,
-                    hue: 0,
-                    blur: 0
-                };
-                imageSettings[currentEye].adjustments = { ...defaultAdjustments };
-                Object.entries(adjustmentSliders).forEach(([adjustment, slider]) => {
-                    slider.value = defaultAdjustments[adjustment];
-                    slider.nextElementSibling.textContent = defaultAdjustments[adjustment];
-                });
-                updateCanvasImage(currentEye);
-            }
-
-            document.getElementById('resetAdjustments').addEventListener('click', resetAdjustments);
-
-            // Auto Levels Functionality
-            document.getElementById('autoLevels').addEventListener('click', function() {
-                const settings = imageSettings[currentEye];
-                const img = settings.image;
-                if (!img) return;
-
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-
-                // Downscale image for performance
-                const width = 256;
-                const aspectRatio = img.naturalHeight / img.naturalWidth;
-                canvas.width = width;
-                canvas.height = width * aspectRatio;
-
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-
-                let minLuminance = 255;
-                let maxLuminance = 0;
-
-                // Calculate luminance and find min/max
-                for (let i = 0; i < imageData.data.length; i += 4) {
-                    const r = imageData.data[i];
-                    const g = imageData.data[i + 1];
-                    const b = imageData.data[i + 2];
-                    const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-                    minLuminance = Math.min(minLuminance, luminance);
-                    maxLuminance = Math.max(maxLuminance, luminance);
-                }
-
-                // Calculate exposure and contrast adjustments
-                const exposureAdjustment = ((maxLuminance + minLuminance) / 2 - 127.5) / 127.5 * -100;
-                const contrastAdjustment = ((255 / (maxLuminance - minLuminance)) - 1) * 100;
-
-                // Clamp values
-                const exposure = Math.max(-100, Math.min(100, exposureAdjustment));
-                const contrast = Math.max(-100, Math.min(100, contrastAdjustment));
-
-                // Apply adjustments
-                imageSettings[currentEye].adjustments.exposure = exposure;
-                imageSettings[currentEye].adjustments.contrast = contrast;
-
-                // Update sliders
-                adjustmentSliders.exposure.value = exposure;
-                adjustmentSliders.exposure.nextElementSibling.textContent = Math.round(exposure);
-                adjustmentSliders.contrast.value = contrast;
-                adjustmentSliders.contrast.nextElementSibling.textContent = Math.round(contrast);
-
-                updateCanvasImage(currentEye);
-            });
-
-            // Histogram Drawing
-            function updateHistogram() {
-                const settings = imageSettings[currentEye];
-                const img = settings.image;
-                if (!img) return;
-
-                // Set canvas dimensions
-                histogramCanvas.width = histogramCanvas.offsetWidth;
-                histogramCanvas.height = histogramCanvas.offsetHeight;
-
-                const ctx = histogramCtx;
-                const width = histogramCanvas.width;
-                const height = histogramCanvas.height;
-
-                // Clear canvas
-                ctx.clearRect(0, 0, width, height);
-
-                const tempCanvas = document.createElement('canvas');
-                const tempCtx = tempCanvas.getContext('2d');
-
-                // Downscale image for performance
-                tempCanvas.width = 256;
-                const aspectRatio = img.naturalHeight / img.naturalWidth;
-                tempCanvas.height = 256 * aspectRatio;
-
-                tempCtx.filter = `
-                    brightness(${(100 + settings.adjustments.exposure) / 100})
-                    contrast(${(100 + settings.adjustments.contrast) / 100})
-                    saturate(${(100 + settings.adjustments.saturation) / 100})
-                    hue-rotate(${settings.adjustments.hue}deg)
-                    blur(${settings.adjustments.blur}px)
-                `;
-
-                tempCtx.drawImage(img, 0, 0, tempCanvas.width, tempCanvas.height);
-                const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-
-                // Initialize histogram data
-                const histogram = new Array(256).fill(0);
-
-                // Calculate luminance histogram
-                for (let i = 0; i < imageData.data.length; i += 4) {
-                    const r = imageData.data[i];
-                    const g = imageData.data[i + 1];
-                    const b = imageData.data[i + 2];
-                    const luminance = Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b);
-                    histogram[luminance]++;
-                }
-
-                // Find max value for scaling
-                const maxCount = Math.max(...histogram);
-
-                // Draw histogram
-                ctx.fillStyle = 'white';
-                for (let i = 0; i < 256; i++) {
-                    const barHeight = (histogram[i] / maxCount) * height;
-                    ctx.fillRect((i / 256) * width, height - barHeight, width / 256, barHeight);
-                }
-            }
-
-            // Image Canvas Functions
-            function createCanvasForEye(eye) {
-                const settings = imageSettings[eye];
-                settings.canvas = document.createElement('canvas');
-                settings.context = settings.canvas.getContext('2d');
-                settings.canvas.className = 'image-canvas';
-                settings.canvas.width = settings.image.naturalWidth;
-                settings.canvas.height = settings.image.naturalHeight;
-                settings.canvas.style.position = 'absolute';
-                settings.canvas.style.top = '50%';
-                settings.canvas.style.left = '50%';
-                settings.canvas.style.transform = 'translate(-50%, -50%)';
-            }
-
-            function updateCanvasTransform(eye) {
-                const settings = imageSettings[eye];
-                const canvas = settings.canvas;
-                if (canvas) {
-                    canvas.style.transform = `
-                        translate(-50%, -50%)
-                        translate(${settings.translateX}px, ${settings.translateY}px)
-                        rotate(${settings.rotation}deg)
-                        scale(${settings.scale})
-                    `;
-                }
-            }
-
-            function resetImagePosition(eye) {
-                imageSettings[eye] = {
-                    ...imageSettings[eye],
-                    rotation: 0,
-                    scale: 1,
-                    translateX: 0,
-                    translateY: 0
-                };
-                updateCanvasTransform(eye);
-            }
-
-            // Image Loading Functions
-            function loadImageForSpecificEye(eye) {
-                const container = isDualViewActive ? 
-                    (eye === 'L' ? leftImageContainer : rightImageContainer) : imageContainer;
-                container.innerHTML = '';
-                const settings = imageSettings[eye];
-                if (settings.canvas) {
-                    container.appendChild(settings.canvas);
-                    setupMouseListeners(container, settings.canvas, eye);
-                    updateCanvasImage(eye);
-                }
-            }
-
-            // Mouse Event Functions
-            function setupMouseListeners(container, canvas, eye) {
-                let isDragging = false;
-                let startX, startY;
-                let startTranslateX, startTranslateY;
-
-                function getMousePosition(e) {
-                    const rect = container.getBoundingClientRect();
-                    return {
-                        x: e.clientX - rect.left,
-                        y: e.clientY - rect.top
-                    };
-                }
-
-                function startDrag(e) {
-                    e.preventDefault();
-                    isDragging = true;
-                    const mousePos = getMousePosition(e);
-                    startX = mousePos.x;
-                    startY = mousePos.y;
-                    startTranslateX = imageSettings[eye].translateX;
-                    startTranslateY = imageSettings[eye].translateY;
-                    canvas.style.cursor = 'grabbing';
-                }
-
-                function drag(e) {
-                    if (!isDragging) return;
-                    e.preventDefault();
-                    const mousePos = getMousePosition(e);
-                    const dx = mousePos.x - startX;
-                    const dy = mousePos.y - startY;
-                    imageSettings[eye].translateX = startTranslateX + dx;
-                    imageSettings[eye].translateY = startTranslateY + dy;
-                    updateCanvasTransform(eye);
-                }
-
-                function stopDrag(e) {
-                    e.preventDefault();
-                    isDragging = false;
-                    canvas.style.cursor = 'grab';
-                }
-
-                canvas.addEventListener('mousedown', startDrag);
-                container.addEventListener('mousemove', drag);
-                container.addEventListener('mouseup', stopDrag);
-                container.addEventListener('mouseleave', stopDrag);
-
-                // Touch Events
-                canvas.addEventListener('touchstart', function(e) {
-                    e.preventDefault();
-                    if (e.touches.length === 1) {
-                        startDrag(e.touches[0]);
-                    }
-                });
-                container.addEventListener('touchmove', function(e) {
-                    e.preventDefault();
-                    if (e.touches.length === 1) {
-                        drag(e.touches[0]);
-                    }
-                });
-                container.addEventListener('touchend', stopDrag);
-
-                // Zoom with mouse wheel
-                container.addEventListener('wheel', function(e) {
-                    e.preventDefault();
-                    const delta = e.deltaY * -0.001;
-                    let newScale = imageSettings[eye].scale * (1 + delta);
-                    
-                    if (newScale > 0.1 && newScale < 10) {
-                        imageSettings[eye].scale = newScale;
-                        updateCanvasTransform(eye);
-                    }
-                });
-
-                canvas.addEventListener('dblclick', function(e) {
-                    e.preventDefault();
-                    resetImagePosition(eye);
-                });
-            }
-
-            // Eye Switch Function
-            function switchEye(eye) {
-                currentEye = eye;
-                loadSVG(availableMaps[0], eye);
-                loadImageForSpecificEye(eye);
-                opacitySlider.value = svgSettings[eye].opacity;
-                mapColor.value = svgSettings[eye].mapColor;
-                
-                // Update adjustment sliders to match current eye's settings
-                Object.entries(adjustmentSliders).forEach(([adjustment, slider]) => {
-                    const value = imageSettings[eye].adjustments[adjustment];
-                    slider.value = value;
-                    slider.nextElementSibling.textContent = value;
-                });
-            }
-
-            // Event Listeners
-            imageUpload.addEventListener('change', function(e) {
-                const files = e.target.files;
-                for (let i = 0; i < files.length; i++) {
-                    const file = files[i];
-                    const reader = new FileReader();
-                    reader.onload = function(event) {
-                        const img = new Image();
-                        img.onload = function() {
-                            images[currentEye] = event.target.result;
-                            imageSettings[currentEye].image = img;
-                            createCanvasForEye(currentEye);
-                            loadImageForSpecificEye(currentEye);
-                            resetImagePosition(currentEye);
-                            resetAdjustments();
-                            addToGallery(event.target.result, file.name);
-                        };
-                        img.src = event.target.result;
-                    };
-                    reader.readAsDataURL(file);
-                }
-            });
-
-            // Control Button Event Listeners
-            document.getElementById('rotateLeft').addEventListener('click', () => {
-                imageSettings[currentEye].rotation -= 5;
-                updateCanvasTransform(currentEye);
-            });
-
-            document.getElementById('rotateRight').addEventListener('click', () => {
-                imageSettings[currentEye].rotation += 5;
-                updateCanvasTransform(currentEye);
-            });
-
-            document.getElementById('zoomIn').addEventListener('click', () => {
-                let newScale = imageSettings[currentEye].scale * 1.1;
-                newScale = Math.min(newScale, 10);
-                imageSettings[currentEye].scale = newScale;
-                updateCanvasTransform(currentEye);
-            });
-
-            document.getElementById('zoomOut').addEventListener('click', () => {
-                let newScale = imageSettings[currentEye].scale / 1.1;
-                newScale = Math.max(newScale, 0.1);
-                imageSettings[currentEye].scale = newScale;
-                updateCanvasTransform(currentEye);
-            });
-
-            document.getElementById('resetZoom').addEventListener('click', () => {
-                resetImagePosition(currentEye);
-            });
-
-            // Movement Buttons
-            document.getElementById('moveUp').addEventListener('click', () => {
-                imageSettings[currentEye].translateY -= 10;
-                updateCanvasTransform(currentEye);
-            });
-
-            document.getElementById('moveDown').addEventListener('click', () => {
-                imageSettings[currentEye].translateY += 10;
-                updateCanvasTransform(currentEye);
-            });
-
-            document.getElementById('moveLeft').addEventListener('click', () => {
-                imageSettings[currentEye].translateX -= 10;
-                updateCanvasTransform(currentEye);
-            });
-
-            document.getElementById('moveRight').addEventListener('click', () => {
-                imageSettings[currentEye].translateX += 10;
-                updateCanvasTransform(currentEye);
-            });
-
-            // Save Functionality
-            document.getElementById('save').addEventListener('click', () => {
-                const containerToCapture = isDualViewActive ? dualMapperContainer : singleMapperContainer;
-
-                // Show progress indicator
-                progressIndicator.style.display = 'flex';
-
-                html2canvas(containerToCapture, {
-                    useCORS: true,
-                    allowTaint: false,
-                    backgroundColor: null,
-                    scale: 2,
-                    width: containerToCapture.offsetWidth,
-                    height: containerToCapture.offsetHeight,
-                    windowWidth: containerToCapture.scrollWidth,
-                    windowHeight: containerToCapture.scrollHeight,
-                }).then(canvas => {
-                    const link = document.createElement('a');
-                    link.download = 'iris_map.png';
-                    link.href = canvas.toDataURL('image/png');
-                    link.click();
-
-                    // Hide progress indicator
-                    progressIndicator.style.display = 'none';
-                }).catch(error => {
-                    console.error('Error saving image:', error);
-                    alert('Failed to save the image. Please try again.');
-
-                    // Hide progress indicator
-                    progressIndicator.style.display = 'none';
-                });
-            });
-
-            // Slider Event Listeners
-            opacitySlider.addEventListener('input', function() {
-                const newOpacity = parseFloat(this.value);
-                if (isDualViewActive) {
-                    leftSvgContainer.style.opacity = newOpacity;
-                    rightSvgContainer.style.opacity = newOpacity;
-                    svgSettings['L'].opacity = newOpacity;
-                    svgSettings['R'].opacity = newOpacity;
-                } else {
-                    svgContainer.style.opacity = newOpacity;
-                    svgSettings[currentEye].opacity = newOpacity;
-                }
-            });
-
-            mapColor.addEventListener('input', function() {
-                const newColor = this.value;
-                if (isDualViewActive) {
-                    changeMapColor(newColor, 'L');
-                    changeMapColor(newColor, 'R');
-                } else {
-                    changeMapColor(newColor, currentEye);
-                }
-            });
-
-            // Eye Selection Button Event Listeners
-            document.getElementById('leftEye').addEventListener('click', () => {
-                if (!isDualViewActive) switchEye('L');
-            });
-
-            document.getElementById('rightEye').addEventListener('click', () => {
-                if (!isDualViewActive) switchEye('R');
-            });
-
-            document.getElementById('bothEyes').addEventListener('click', toggleDualView);
-
-            // Dual View Toggle Function
-            function toggleDualView() {
-                isDualViewActive = !isDualViewActive;
-                if (isDualViewActive) {
-                    singleMapperContainer.style.display = 'none';
-                    dualMapperContainer.style.display = 'flex';
-                    loadImageForSpecificEye('L');
-                    loadImageForSpecificEye('R');
-                    loadSVG(availableMaps[0], 'L');
-                    loadSVG(availableMaps[0], 'R');
-                } else {
-                    dualMapperContainer.style.display = 'none';
-                    singleMapperContainer.style.display = 'block';
-                    loadImageForSpecificEye(currentEye);
-                    loadSVG(availableMaps[0], currentEye);
-                }
-            }
-
-            // Map Selection Modal
-            document.getElementById('selectMap').addEventListener('click', () => {
-                mapModal.style.display = 'block';
-                mapOptions.innerHTML = '';
-                availableMaps.forEach(map => {
-                    const option = document.createElement('div');
-                    option.className = 'map-option';
-                    option.textContent = map;
-                    option.onclick = function() {
-                        if (isDualViewActive) {
-                            loadSVG(map, 'L');
-                            loadSVG(map, 'R');
-                        } else {
-                            loadSVG(map, currentEye);
-                        }
-                        mapModal.style.display = 'none';
-                    };
-                    mapOptions.appendChild(option);
-                });
-            });
-
-            // Custom Map Button
-            document.getElementById('customMap').addEventListener('click', () => {
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.accept = '.svg';
-                input.onchange = e => {
-                    const file = e.target.files[0];
-                    const reader = new FileReader();
-                    reader.onload = event => {
-                        customSvgContent = DOMPurify.sanitize(event.target.result, { USE_PROFILES: { svg: true } });
-                        if (isDualViewActive) {
-                            leftSvgContainer.innerHTML = customSvgContent;
-                            rightSvgContainer.innerHTML = customSvgContent;
-                            setupSvgElement(leftSvgContainer, 'L');
-                            setupSvgElement(rightSvgContainer, 'R');
-                        } else {
-                            svgContainer.innerHTML = customSvgContent;
-                            setupSvgElement(svgContainer, currentEye);
-                        }
-                    };
-                    reader.readAsText(file);
-                };
-                input.click();
-            });
-
-            // Close Modal Button
-            closeBtn.onclick = function() {
-                mapModal.style.display = 'none';
-            };
-
-            // Click Outside Modal to Close
-            window.onclick = function(event) {
-                if (event.target == mapModal) {
-                    mapModal.style.display = 'none';
-                }
-            };
-
-            // Notes Button
-            document.getElementById('notes').addEventListener('click', () => {
-                const notes = prompt('Enter notes:');
-                if (notes) {
-                    console.log('Notes saved:', notes);
-                    alert('Notes saved successfully!');
-                }
-            });
-
-            // SVG Functions
-            function loadSVG(svgFile, eye = currentEye) {
-                const container = isDualViewActive ? 
-                    (eye === 'L' ? leftSvgContainer : rightSvgContainer) : svgContainer;
-                
-                fetch(`grids/${svgFile}_${eye}.svg`)
-                    .then(response => response.text())
-                    .then(svgContent => {
-                        const sanitizedSVG = DOMPurify.sanitize(svgContent, { USE_PROFILES: { svg: true, svgFilters: true } });
-                        container.innerHTML = sanitizedSVG;
-                        svgSettings[eye].svgContent = sanitizedSVG;
-                        setupSvgElement(container, eye);
-                    })
-                    .catch(error => {
-                        console.error('Error loading SVG:', error);
-                        container.innerHTML = '';
-                        alert(`Failed to load SVG: ${svgFile}_${eye}.svg`);
-                    });
-            }
-
-            function setupSvgElement(container, eye) {
-                const svgElement = container.querySelector('svg');
-                if (svgElement) {
-                    svgElement.setAttribute('width', '100%');
-                    svgElement.setAttribute('height', '100%');
-                    svgElement.style.pointerEvents = 'none';
-                    svgElement.style.userSelect = 'none';
-                    container.style.opacity = svgSettings[eye].opacity;
-                    changeMapColor(svgSettings[eye].mapColor, eye);
-                    
-                    const svgTexts = svgElement.querySelectorAll('text');
-                    svgTexts.forEach(text => {
-                        text.style.userSelect = 'none';
-                    });
-                }
-            }
-
-            function changeMapColor(color, eye) {
-                const container = isDualViewActive ? 
-                    (eye === 'L' ? leftSvgContainer : rightSvgContainer) : svgContainer;
-                const svgPaths = container.querySelectorAll('svg path, svg line, svg circle');
-                svgPaths.forEach(path => {
-                    path.setAttribute('stroke', color);
-                });
-                svgSettings[eye].mapColor = color;
-            }
-
-            // Initialize the application
-            function initialize() {
-                // Set up histogram canvas
-                histogramCanvas.width = histogramCanvas.offsetWidth;
-                histogramCanvas.height = histogramCanvas.offsetHeight;
-                
-                // Load initial map
-                loadSVG(availableMaps[0], 'L');
-            }
-
-            // Call initialize function
-            initialize();
-
-            // Prevent default drag behavior
-            document.addEventListener('dragover', function(e) {
-                e.preventDefault();
-            });
-
-            document.addEventListener('drop', function(e) {
-                e.preventDefault();
-            });
+    <!-- Web Worker Script -->
+    <script id="workerScript" type="javascript/worker">
+        self.addEventListener('message', function(e) {
+            const imageData = e.data;
+            const histogramData = calculateHistogram(imageData);
+            self.postMessage(histogramData);
         });
+
+        function calculateHistogram(imageData) {
+            const data = imageData.data;
+            const length = data.length;
+            const histogramR = new Uint32Array(256);
+            const histogramG = new Uint32Array(256);
+            const histogramB = new Uint32Array(256);
+
+            for (let i = 0; i < length; i += 4) {
+                histogramR[data[i]]++;
+                histogramG[data[i + 1]]++;
+                histogramB[data[i + 2]]++;
+            }
+
+            return { histogramR, histogramG, histogramB };
+        }
     </script>
+
+    <!-- Main JavaScript -->
+    <script src="script.js"></script>
 </body>
 </html>
