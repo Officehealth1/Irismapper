@@ -54,11 +54,14 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
     
+    // Map Tracking
+    let currentMap = availableMaps[0]; // Initialize with the default map
+    let customSvgContent = ''; // To store custom SVG content
+
     // Histogram Optimization
     let histogramUpdatePending = false;
     let lastHistogramUpdate = 0;
     const HISTOGRAM_THROTTLE = 100;
-    const histogramCache = new Map();
     const SAMPLING_RATE = 4; // Process every 4th pixel for performance
 
     function initializeEyeSettings() {
@@ -140,7 +143,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function updateHistogram() {
-        const settings = imageSettings[currentEye];
+        const settings = isDualViewActive ? imageSettings['L'] : imageSettings[currentEye];
         if (!settings.canvas || histogramUpdatePending) return;
 
         const now = Date.now();
@@ -225,7 +228,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-function makeElementDraggable(element) {
+    function makeElementDraggable(element) {
         let isDragging = false;
         let startX, startY;
         let initialX, initialY;
@@ -347,9 +350,14 @@ function makeElementDraggable(element) {
         canvas.addEventListener('contextmenu', e => e.preventDefault());
     }
 
-function createCanvasForEye(eye) {
+    function createCanvasForEye(eye) {
         const settings = imageSettings[eye];
         if (!settings.image) return;
+
+        if (settings.canvas) {
+            // If canvas already exists, remove it to prevent duplicates
+            settings.canvas.remove();
+        }
 
         settings.canvas = document.createElement('canvas');
         settings.context = settings.canvas.getContext('2d', { willReadFrequently: true });
@@ -474,7 +482,7 @@ function createCanvasForEye(eye) {
         }
     }
 
-function applySharpening(imageData, originalData, sharpness) {
+    function applySharpening(imageData, originalData, sharpness) {
         const width = imageData.width;
         const height = imageData.height;
         const data = imageData.data;
@@ -586,32 +594,42 @@ function applySharpening(imageData, originalData, sharpness) {
         galleryAccordion.appendChild(galleryItem);
     }
 
-function setupGalleryItemEvents(galleryItem, imageDataUrl) {
-    const imageNameElement = galleryItem.querySelector('.image-name');
-    const renameBtn = galleryItem.querySelector('.rename-btn');
-    const loadBtn = galleryItem.querySelector('.load-btn');
-    
-    renameBtn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        const currentName = imageNameElement.textContent;
-        const newName = prompt('Enter new name:', currentName);
-        if (newName?.trim()) {
-            imageNameElement.textContent = newName.trim();
-        }
-    });
+    function setupGalleryItemEvents(galleryItem, imageDataUrl) {
+        const imageNameElement = galleryItem.querySelector('.image-name');
+        const renameBtn = galleryItem.querySelector('.rename-btn');
+        const loadBtn = galleryItem.querySelector('.load-btn');
+        
+        renameBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const currentName = imageNameElement.textContent;
+            const newName = prompt('Enter new name:', currentName);
+            if (newName?.trim()) {
+                imageNameElement.textContent = newName.trim();
+            }
+        });
 
-    loadBtn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        loadImageFromGallery(imageDataUrl);
-    });
-}
+        loadBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            loadImageFromGallery(imageDataUrl);
+        });
+    }
 
     function loadImageFromGallery(imageDataUrl) {
         const img = new Image();
         img.onload = function() {
-            imageSettings[currentEye].image = img;
-            createCanvasForEye(currentEye);
-            loadImageForSpecificEye(currentEye);
+            if (isDualViewActive) {
+                // Assign to both eyes
+                imageSettings['L'].image = img;
+                imageSettings['R'].image = img;
+                createCanvasForEye('L');
+                createCanvasForEye('R');
+                loadImageForSpecificEye('L');
+                loadImageForSpecificEye('R');
+            } else {
+                imageSettings[currentEye].image = img;
+                createCanvasForEye(currentEye);
+                loadImageForSpecificEye(currentEye);
+            }
             resetAdjustments();
         };
         img.src = imageDataUrl;
@@ -630,7 +648,12 @@ function setupGalleryItemEvents(galleryItem, imageDataUrl) {
             sharpness: 0
         };
 
-        imageSettings[currentEye].adjustments = { ...defaultAdjustments };
+        if (isDualViewActive) {
+            imageSettings['L'].adjustments = { ...defaultAdjustments };
+            imageSettings['R'].adjustments = { ...defaultAdjustments };
+        } else {
+            imageSettings[currentEye].adjustments = { ...defaultAdjustments };
+        }
         
         // Update all sliders and their displays
         Object.entries(adjustmentSliders).forEach(([adjustment, slider]) => {
@@ -643,18 +666,26 @@ function setupGalleryItemEvents(galleryItem, imageDataUrl) {
             }
         });
 
-        // Update image with reset adjustments
-        requestAnimationFrame(() => {
-            updateCanvasImage(currentEye);
-        });
+        // Update images with reset adjustments
+        if (isDualViewActive) {
+            requestAnimationFrame(() => {
+                updateCanvasImage('L');
+                updateCanvasImage('R');
+            });
+        } else {
+            requestAnimationFrame(() => {
+                updateCanvasImage(currentEye);
+            });
+        }
     }
 
     function switchEye(eye) {
         if (currentEye === eye) return;
         
         currentEye = eye;
-        loadSVG(availableMaps[0], eye);
+        loadSVG(currentMap, eye); // Use currentMap instead of availableMaps[0]
         loadImageForSpecificEye(eye);
+        updateSVGContainers(eye);
         
         if (opacitySlider) {
             opacitySlider.value = svgSettings[eye].opacity;
@@ -677,290 +708,116 @@ function setupGalleryItemEvents(galleryItem, imageDataUrl) {
     }
 
     function toggleDualView() {
-        // Update state first
         isDualViewActive = !isDualViewActive;
         
-        // Force synchronous DOM updates
         if (isDualViewActive) {
             singleMapperContainer.style.display = 'none';
             dualMapperContainer.style.display = 'flex';
             
-            // Force cleanup and setup of both views
-            if (imageSettings['L'].image) {
-                createCanvasForEye('L');
-                loadImageForSpecificEye('L');
-                loadSVG(availableMaps[0], 'L');
-                updateCanvasTransform('L');
-            }
-            if (imageSettings['R'].image) {
-                createCanvasForEye('R');
-                loadImageForSpecificEye('R');
-                loadSVG(availableMaps[0], 'R');
-                updateCanvasTransform('R');
-            }
-            
-            // Update SVG containers
-            if (leftSvgContainer) {
-                leftSvgContainer.style.opacity = svgSettings['L'].opacity;
-                changeMapColor(svgSettings['L'].mapColor, 'L');
-            }
-            if (rightSvgContainer) {
-                rightSvgContainer.style.opacity = svgSettings['R'].opacity;
-                changeMapColor(svgSettings['R'].mapColor, 'R');
-            }
+            // Load images and SVGs for both eyes
+            ['L', 'R'].forEach(eye => {
+                if (imageSettings[eye].image) {
+                    loadSVG(currentMap, eye);
+                    updateSVGContainers(eye);
+                    loadImageForSpecificEye(eye);
+                }
+            });
         } else {
             dualMapperContainer.style.display = 'none';
             singleMapperContainer.style.display = 'block';
             
-            // Force cleanup and setup of current eye
-            if (imageSettings[currentEye].image) {
-                createCanvasForEye(currentEye);
-                loadImageForSpecificEye(currentEye);
-                loadSVG(availableMaps[0], currentEye);
-                updateCanvasTransform(currentEye);
+            loadSVG(currentMap, currentEye);
+            updateSVGContainers(currentEye);
+            loadImageForSpecificEye(currentEye);
+        }
+
+        requestAnimationFrame(() => {
+            if (isDualViewActive) {
+                ['L', 'R'].forEach(eye => {
+                    if (imageSettings[eye].canvas) updateCanvasImage(eye);
+                });
+            } else {
+                if (imageSettings[currentEye].canvas) updateCanvasImage(currentEye);
             }
-            
-            // Update SVG container
+            updateHistogram();
+        });
+    }
+
+    function updateSVGContainers(eye) {
+        if (isDualViewActive) {
+            if (eye === 'L') {
+                if (leftSvgContainer) {
+                    leftSvgContainer.style.opacity = svgSettings['L'].opacity;
+                    changeMapColor(svgSettings['L'].mapColor, 'L');
+                }
+            } else if (eye === 'R') {
+                if (rightSvgContainer) {
+                    rightSvgContainer.style.opacity = svgSettings['R'].opacity;
+                    changeMapColor(svgSettings['R'].mapColor, 'R');
+                }
+            }
+        } else {
             if (svgContainer) {
                 svgContainer.style.opacity = svgSettings[currentEye].opacity;
                 changeMapColor(svgSettings[currentEye].mapColor, currentEye);
             }
         }
-    
-        // Force immediate canvas updates
-        requestAnimationFrame(() => {
-            if (isDualViewActive) {
-                if (imageSettings['L'].canvas) {
-                    updateCanvasImage('L');
-                    updateCanvasTransform('L');
-                }
-                if (imageSettings['R'].canvas) {
-                    updateCanvasImage('R');
-                    updateCanvasTransform('R');
-                }
-            } else {
-                if (imageSettings[currentEye].canvas) {
-                    updateCanvasImage(currentEye);
-                    updateCanvasTransform(currentEye);
-                }
-            }
-            
-            // Force histogram update
-            updateHistogram();
-        });
     }
 
-// Event Listeners
-    imageUpload.addEventListener('change', function(e) {
-        const files = e.target.files;
-        if (!files.length) return;
-
-        for (let i = 0; i < files.length; i++) {
-            const file = files[i];
-            const reader = new FileReader();
-            
-            reader.onload = function(event) {
-                const img = new Image();
-                img.onload = function() {
-                    images[currentEye] = event.target.result;
-                    imageSettings[currentEye].image = img;
-                    createCanvasForEye(currentEye);
-                    loadImageForSpecificEye(currentEye);
-                    resetAdjustments();
-                    addToGallery(event.target.result, file.name);
-                };
-                img.src = event.target.result;
-            };
-            reader.readAsDataURL(file);
-        }
-    });
-
-    document.querySelector('.add-image-btn')?.addEventListener('click', function() {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = 'image/*';
-        input.multiple = true;
-        
-        input.onchange = function(e) {
-            const files = e.target.files;
-            if (!files.length) return;
-
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                const reader = new FileReader();
-                reader.onload = function(event) {
-                    addToGallery(event.target.result, file.name);
-                };
-                reader.readAsDataURL(file);
-            }
-        };
-        
-        input.click();
-    });
-
-    // Set up adjustment slider events with optimized performance
-    Object.entries(adjustmentSliders).forEach(([adjustment, slider]) => {
-        if (!slider) return;
-
-        const updateSlider = debounce(function(value) {
-            if (!imageSettings[currentEye]) return;
-            
-            imageSettings[currentEye].adjustments[adjustment] = parseFloat(value);
-            requestAnimationFrame(() => {
-                updateCanvasImage(currentEye);
-            });
-        }, 16); // Debounce at 60fps rate
-
-        slider.addEventListener('input', function() {
-            const value = parseFloat(this.value);
-            this.nextElementSibling.textContent = value;
-            updateSlider(value);
-        });
-    });
-
-    document.getElementById('resetAdjustments')?.addEventListener('click', resetAdjustments);
-
-    document.getElementById('autoLevels')?.addEventListener('click', function() {
-        const settings = imageSettings[currentEye];
-        if (!settings.image) return;
-
-        // Create temporary canvas for analysis
-        const tempCanvas = document.createElement('canvas');
-        const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
-        tempCanvas.width = 256;
-        const aspectRatio = settings.image.naturalHeight / settings.image.naturalWidth;
-        tempCanvas.height = Math.round(256 * aspectRatio);
-
-        tempCtx.drawImage(settings.image, 0, 0, tempCanvas.width, tempCanvas.height);
-        const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-        const data = imageData.data;
-
-        let minLuminance = 255;
-        let maxLuminance = 0;
-        
-        // Sample pixels for performance
-        for (let i = 0; i < data.length; i += 16) {
-            const r = data[i];
-            const g = data[i + 1];
-            const b = data[i + 2];
-            const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-            minLuminance = Math.min(minLuminance, luminance);
-            maxLuminance = Math.max(maxLuminance, luminance);
-        }
-
-        // Calculate adjustments
-        const exposureAdjustment = ((maxLuminance + minLuminance) / 2 - 127.5) / 127.5 * -100;
-        const contrastAdjustment = ((255 / (maxLuminance - minLuminance)) - 1) * 100;
-
-        // Apply calculated adjustments
-        const exposure = Math.max(-100, Math.min(100, exposureAdjustment));
-        const contrast = Math.max(-100, Math.min(100, contrastAdjustment));
-
-        imageSettings[currentEye].adjustments.exposure = exposure;
-        imageSettings[currentEye].adjustments.contrast = contrast;
-
-        // Update UI
-        if (adjustmentSliders.exposure) {
-            adjustmentSliders.exposure.value = exposure;
-            adjustmentSliders.exposure.nextElementSibling.textContent = Math.round(exposure);
-        }
-        if (adjustmentSliders.contrast) {
-            adjustmentSliders.contrast.value = contrast;
-            adjustmentSliders.contrast.nextElementSibling.textContent = Math.round(contrast);
-        }
-
-        // Update image
-        requestAnimationFrame(() => {
-            updateCanvasImage(currentEye);
-        });
-    });
-
-// Image transformation controls
-    document.getElementById('rotateLeft')?.addEventListener('click', () => {
-        imageSettings[currentEye].rotation -= 5;
-        requestAnimationFrame(() => {
-            updateCanvasTransform(currentEye);
-        });
-    });
-
-    document.getElementById('rotateRight')?.addEventListener('click', () => {
-        imageSettings[currentEye].rotation += 5;
-        requestAnimationFrame(() => {
-            updateCanvasTransform(currentEye);
-        });
-    });
-
-    document.getElementById('zoomIn')?.addEventListener('click', () => {
-        let newScale = (imageSettings[currentEye].scale || 1) * 1.1;
-        newScale = Math.min(newScale, 10);
-        imageSettings[currentEye].scale = newScale;
-        requestAnimationFrame(() => {
-            updateCanvasTransform(currentEye);
-        });
-    });
-
-    document.getElementById('zoomOut')?.addEventListener('click', () => {
-        let newScale = (imageSettings[currentEye].scale || 1) / 1.1;
-        newScale = Math.max(newScale, 0.1);
-        imageSettings[currentEye].scale = newScale;
-        requestAnimationFrame(() => {
-            updateCanvasTransform(currentEye);
-        });
-    });
-
-    // Movement controls with optimized transforms
-    const moveImage = (direction) => {
-        const amount = 10;
-        const settings = imageSettings[currentEye];
-        
-        switch(direction) {
-            case 'up':
-                settings.translateY -= amount;
-                break;
-            case 'down':
-                settings.translateY += amount;
-                break;
-            case 'left':
-                settings.translateX -= amount;
-                break;
-            case 'right':
-                settings.translateX += amount;
-                break;
-        }
-
-        requestAnimationFrame(() => {
-            updateCanvasTransform(currentEye);
-        });
-    };
-
-    document.getElementById('moveUp')?.addEventListener('click', () => moveImage('up'));
-    document.getElementById('moveDown')?.addEventListener('click', () => moveImage('down'));
-    document.getElementById('moveLeft')?.addEventListener('click', () => moveImage('left'));
-    document.getElementById('moveRight')?.addEventListener('click', () => moveImage('right'));
-
-    // Eye selection controls
+    // Event Listeners for Eye Buttons
     document.getElementById('leftEye')?.addEventListener('click', () => {
-        if (!isDualViewActive) switchEye('L');
+        if (isDualViewActive) {
+            isDualViewActive = false;
+            currentEye = 'L';
+            
+            const btns = document.querySelectorAll('.eye-btn');
+            btns.forEach(btn => btn.classList.remove('active'));
+            document.getElementById('leftEye').classList.add('active');
+            
+            dualMapperContainer.style.display = 'none';
+            singleMapperContainer.style.display = 'block';
+            
+            loadSVG(currentMap, 'L');
+            updateSVGContainers('L');
+            loadImageForSpecificEye('L');
+        } else {
+            switchEye('L');
+            const btns = document.querySelectorAll('.eye-btn');
+            btns.forEach(btn => btn.classList.remove('active'));
+            document.getElementById('leftEye').classList.add('active');
+        }
     });
 
     document.getElementById('rightEye')?.addEventListener('click', () => {
-        if (!isDualViewActive) switchEye('R');
+        if (isDualViewActive) {
+            isDualViewActive = false;
+            currentEye = 'R';
+            
+            const btns = document.querySelectorAll('.eye-btn');
+            btns.forEach(btn => btn.classList.remove('active'));
+            document.getElementById('rightEye').classList.add('active');
+            
+            dualMapperContainer.style.display = 'none';
+            singleMapperContainer.style.display = 'block';
+            
+            loadSVG(currentMap, 'R');
+            updateSVGContainers('R');
+            loadImageForSpecificEye('R');
+        } else {
+            switchEye('R');
+            const btns = document.querySelectorAll('.eye-btn');
+            btns.forEach(btn => btn.classList.remove('active'));
+            document.getElementById('rightEye').classList.add('active');
+        }
     });
 
-    document.getElementById('bothEyes')?.addEventListener('click', function(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    toggleDualView();
-    
-    // Force UI update
-    requestAnimationFrame(() => {
+    document.getElementById('bothEyes')?.addEventListener('click', function() {
+        toggleDualView();
+        
         const btns = document.querySelectorAll('.eye-btn');
-        btns.forEach(btn => {
-            btn.classList.remove('active');
-        });
+        btns.forEach(btn => btn.classList.remove('active'));
         this.classList.add('active');
     });
-});
 
     // Save functionality with optimized performance
     document.getElementById('save')?.addEventListener('click', () => {
@@ -994,7 +851,7 @@ function setupGalleryItemEvents(galleryItem, imageDataUrl) {
         }, 100);
     });
 
-// SVG and opacity controls
+    // SVG and opacity controls
     opacitySlider?.addEventListener('input', function() {
         const newOpacity = parseFloat(this.value);
         if (isDualViewActive) {
@@ -1030,11 +887,12 @@ function setupGalleryItemEvents(galleryItem, imageDataUrl) {
             option.className = 'map-option';
             option.textContent = map;
             option.onclick = function() {
+                currentMap = map; // Update currentMap
                 if (isDualViewActive) {
-                    loadSVG(map, 'L');
-                    loadSVG(map, 'R');
+                    loadSVG(currentMap, 'L');
+                    loadSVG(currentMap, 'R');
                 } else {
-                    loadSVG(map, currentEye);
+                    loadSVG(currentMap, currentEye);
                 }
                 mapModal.style.display = 'none';
             };
@@ -1054,7 +912,10 @@ function setupGalleryItemEvents(galleryItem, imageDataUrl) {
             const reader = new FileReader();
             reader.onload = event => {
                 if (!event.target?.result) return;
-                customSvgContent = DOMPurify.sanitize(event.target.result, { USE_PROFILES: { svg: true } });
+                const sanitizedSvg = DOMPurify.sanitize(event.target.result, { USE_PROFILES: { svg: true } });
+                
+                currentMap = 'custom'; // Set to custom map
+                customSvgContent = sanitizedSvg; // Store custom SVG content
                 
                 if (isDualViewActive) {
                     if (leftSvgContainer) {
@@ -1095,29 +956,36 @@ function setupGalleryItemEvents(galleryItem, imageDataUrl) {
         }
     });
 
-// SVG handling functions
+    // SVG handling functions
     function loadSVG(svgFile, eye = currentEye) {
         const container = isDualViewActive ? 
             (eye === 'L' ? leftSvgContainer : rightSvgContainer) : svgContainer;
         
         if (!container) return;
 
-        fetch(`grids/${svgFile}_${eye}.svg`)
-            .then(response => response.text())
-            .then(svgContent => {
-                if (!container) return;
-                const sanitizedSVG = DOMPurify.sanitize(svgContent, { 
-                    USE_PROFILES: { svg: true, svgFilters: true } 
+        if (currentMap === 'custom') {
+            // Inject custom SVG content directly
+            container.innerHTML = customSvgContent;
+            setupSvgElement(container, eye);
+            svgSettings[eye].svgContent = customSvgContent;
+        } else {
+            fetch(`grids/${currentMap}_${eye}.svg`)
+                .then(response => response.text())
+                .then(svgContent => {
+                    if (!container) return;
+                    const sanitizedSVG = DOMPurify.sanitize(svgContent, { 
+                        USE_PROFILES: { svg: true, svgFilters: true } 
+                    });
+                    container.innerHTML = sanitizedSVG;
+                    svgSettings[eye].svgContent = sanitizedSVG;
+                    setupSvgElement(container, eye);
+                })
+                .catch(error => {
+                    console.error('Error loading SVG:', error);
+                    if (container) container.innerHTML = '';
+                    alert(`Failed to load SVG: ${currentMap}_${eye}.svg`);
                 });
-                container.innerHTML = sanitizedSVG;
-                svgSettings[eye].svgContent = sanitizedSVG;
-                setupSvgElement(container, eye);
-            })
-            .catch(error => {
-                console.error('Error loading SVG:', error);
-                if (container) container.innerHTML = '';
-                alert(`Failed to load SVG: ${svgFile}_${eye}.svg`);
-            });
+        }
     }
 
     function setupSvgElement(container, eye) {
@@ -1132,8 +1000,6 @@ function setupGalleryItemEvents(galleryItem, imageDataUrl) {
         if (container) {
             container.style.opacity = svgSettings[eye].opacity;
         }
-        
-        changeMapColor(svgSettings[eye].mapColor, eye);
         
         const svgTexts = svgElement.querySelectorAll('text');
         svgTexts.forEach(text => {
@@ -1186,7 +1052,513 @@ function setupGalleryItemEvents(galleryItem, imageDataUrl) {
             histogramCanvas.height = histogramCanvas.offsetHeight;
         }
 
-        loadSVG(availableMaps[0], 'L');
+        // Load default map for both eyes initially
+        loadSVG(currentMap, 'L');
+        loadSVG(currentMap, 'R');
+        setupEnhancedAdjustmentControls();
+
+        // Make control panels draggable
+        controls.forEach(control => {
+            makeElementDraggable(control);
+        });
+
+        // Set up resize handler
+        const resizeHandler = debounce(() => {
+            if (histogramCanvas) {
+                histogramCanvas.width = histogramCanvas.offsetWidth;
+                histogramCanvas.height = histogramCanvas.offsetHeight;
+                updateHistogram();
+            }
+        }, 250);
+
+        window.addEventListener('resize', resizeHandler);
+
+        // Initialize any available controls
+        if (opacitySlider) {
+            opacitySlider.value = svgSettings[currentEye].opacity;
+        }
+        if (mapColor) {
+            mapColor.value = svgSettings[currentEye].mapColor;
+        }
+    }
+
+    // Start the application
+    initialize();
+
+    // Event Listeners for Image Upload and Add Image Button
+    imageUpload.addEventListener('change', function(e) {
+        const files = e.target.files;
+        if (!files.length) return;
+
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const reader = new FileReader();
+            
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    if (isDualViewActive) {
+                        // Assign to both eyes
+                        imageSettings['L'].image = img;
+                        imageSettings['R'].image = img;
+                        createCanvasForEye('L');
+                        createCanvasForEye('R');
+                        loadImageForSpecificEye('L');
+                        loadImageForSpecificEye('R');
+                    } else {
+                        // Assign to current eye
+                        imageSettings[currentEye].image = img;
+                        createCanvasForEye(currentEye);
+                        loadImageForSpecificEye(currentEye);
+                    }
+                    resetAdjustments();
+                    addToGallery(event.target.result, file.name);
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    document.querySelector('.add-image-btn')?.addEventListener('click', function() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.multiple = true;
+        
+        input.onchange = function(e) {
+            const files = e.target.files;
+            if (!files.length) return;
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    addToGallery(event.target.result, file.name);
+                };
+                reader.readAsDataURL(file);
+            }
+        };
+        
+        input.click();
+    });
+
+    // Set up adjustment slider events with optimized performance
+    Object.entries(adjustmentSliders).forEach(([adjustment, slider]) => {
+        if (!slider) return;
+
+        const updateSlider = debounce(function(value) {
+            if (isDualViewActive) {
+                ['L', 'R'].forEach(eye => {
+                    imageSettings[eye].adjustments[adjustment] = parseFloat(value);
+                    requestAnimationFrame(() => {
+                        updateCanvasImage(eye);
+                    });
+                });
+            } else {
+                if (!imageSettings[currentEye]) return;
+                imageSettings[currentEye].adjustments[adjustment] = parseFloat(value);
+                requestAnimationFrame(() => {
+                    updateCanvasImage(currentEye);
+                });
+            }
+        }, 16); // Debounce at 60fps rate
+
+        slider.addEventListener('input', function() {
+            const value = parseFloat(this.value);
+            this.nextElementSibling.textContent = value;
+            updateSlider(value);
+        });
+    });
+
+    document.getElementById('resetAdjustments')?.addEventListener('click', resetAdjustments);
+
+    document.getElementById('autoLevels')?.addEventListener('click', function() {
+        const settings = isDualViewActive ? imageSettings['L'] : imageSettings[currentEye];
+        if (!settings.image) return;
+
+        // Create temporary canvas for analysis
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+        tempCanvas.width = 256;
+        const aspectRatio = settings.image.naturalHeight / settings.image.naturalWidth;
+        tempCanvas.height = Math.round(256 * aspectRatio);
+
+        tempCtx.drawImage(settings.image, 0, 0, tempCanvas.width, tempCanvas.height);
+        const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+        const data = imageData.data;
+
+        let minLuminance = 255;
+        let maxLuminance = 0;
+        
+        // Sample pixels for performance
+        for (let i = 0; i < data.length; i += 16) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+            minLuminance = Math.min(minLuminance, luminance);
+            maxLuminance = Math.max(maxLuminance, luminance);
+        }
+
+        // Calculate adjustments
+        const exposureAdjustment = ((maxLuminance + minLuminance) / 2 - 127.5) / 127.5 * -100;
+        const contrastAdjustment = ((255 / (maxLuminance - minLuminance)) - 1) * 100;
+
+        // Apply calculated adjustments
+        const exposure = Math.max(-100, Math.min(100, exposureAdjustment));
+        const contrast = Math.max(-100, Math.min(100, contrastAdjustment));
+
+        if (isDualViewActive) {
+            ['L', 'R'].forEach(eye => {
+                imageSettings[eye].adjustments.exposure = exposure;
+                imageSettings[eye].adjustments.contrast = contrast;
+            });
+        } else {
+            imageSettings[currentEye].adjustments.exposure = exposure;
+            imageSettings[currentEye].adjustments.contrast = contrast;
+        }
+
+        // Update UI
+        Object.entries(adjustmentSliders).forEach(([adjustment, slider]) => {
+            if (adjustment === 'exposure' && adjustmentSliders.exposure) {
+                adjustmentSliders.exposure.value = exposure;
+                adjustmentSliders.exposure.nextElementSibling.textContent = Math.round(exposure);
+            }
+            if (adjustment === 'contrast' && adjustmentSliders.contrast) {
+                adjustmentSliders.contrast.value = contrast;
+                adjustmentSliders.contrast.nextElementSibling.textContent = Math.round(contrast);
+            }
+        });
+
+        // Update images
+        if (isDualViewActive) {
+            ['L', 'R'].forEach(eye => {
+                updateCanvasImage(eye);
+            });
+        } else {
+            updateCanvasImage(currentEye);
+        }
+    });
+
+    // Image transformation controls
+    document.getElementById('rotateLeft')?.addEventListener('click', () => {
+        if (isDualViewActive) {
+            ['L', 'R'].forEach(eye => {
+                imageSettings[eye].rotation -= 5;
+                updateCanvasTransform(eye);
+            });
+        } else {
+            imageSettings[currentEye].rotation -= 5;
+            updateCanvasTransform(currentEye);
+        }
+    });
+
+    document.getElementById('rotateRight')?.addEventListener('click', () => {
+        if (isDualViewActive) {
+            ['L', 'R'].forEach(eye => {
+                imageSettings[eye].rotation += 5;
+                updateCanvasTransform(eye);
+            });
+        } else {
+            imageSettings[currentEye].rotation += 5;
+            updateCanvasTransform(currentEye);
+        }
+    });
+
+    document.getElementById('zoomIn')?.addEventListener('click', () => {
+        if (isDualViewActive) {
+            ['L', 'R'].forEach(eye => {
+                let newScale = (imageSettings[eye].scale || 1) * 1.1;
+                newScale = Math.min(newScale, 10);
+                imageSettings[eye].scale = newScale;
+                updateCanvasTransform(eye);
+            });
+        } else {
+            let newScale = (imageSettings[currentEye].scale || 1) * 1.1;
+            newScale = Math.min(newScale, 10);
+            imageSettings[currentEye].scale = newScale;
+            updateCanvasTransform(currentEye);
+        }
+    });
+
+    document.getElementById('zoomOut')?.addEventListener('click', () => {
+        if (isDualViewActive) {
+            ['L', 'R'].forEach(eye => {
+                let newScale = (imageSettings[eye].scale || 1) / 1.1;
+                newScale = Math.max(newScale, 0.1);
+                imageSettings[eye].scale = newScale;
+                updateCanvasTransform(eye);
+            });
+        } else {
+            let newScale = (imageSettings[currentEye].scale || 1) / 1.1;
+            newScale = Math.max(newScale, 0.1);
+            imageSettings[currentEye].scale = newScale;
+            updateCanvasTransform(currentEye);
+        }
+    });
+
+    // Movement controls with optimized transforms
+    const moveImage = (direction) => {
+        const amount = 10;
+        if (isDualViewActive) {
+            ['L', 'R'].forEach(eye => {
+                const settings = imageSettings[eye];
+                switch(direction) {
+                    case 'up':
+                        settings.translateY -= amount;
+                        break;
+                    case 'down':
+                        settings.translateY += amount;
+                        break;
+                    case 'left':
+                        settings.translateX -= amount;
+                        break;
+                    case 'right':
+                        settings.translateX += amount;
+                        break;
+                }
+                updateCanvasTransform(eye);
+            });
+        } else {
+            const settings = imageSettings[currentEye];
+            switch(direction) {
+                case 'up':
+                    settings.translateY -= amount;
+                    break;
+                case 'down':
+                    settings.translateY += amount;
+                    break;
+                case 'left':
+                    settings.translateX -= amount;
+                    break;
+                case 'right':
+                    settings.translateX += amount;
+                    break;
+            }
+            updateCanvasTransform(currentEye);
+        }
+    };
+
+    document.getElementById('moveUp')?.addEventListener('click', () => moveImage('up'));
+    document.getElementById('moveDown')?.addEventListener('click', () => moveImage('down'));
+    document.getElementById('moveLeft')?.addEventListener('click', () => moveImage('left'));
+    document.getElementById('moveRight')?.addEventListener('click', () => moveImage('right'));
+
+    // Save functionality with optimized performance
+    document.getElementById('save')?.addEventListener('click', () => {
+        const containerToCapture = isDualViewActive ? dualMapperContainer : singleMapperContainer;
+        if (!containerToCapture) return;
+
+        progressIndicator.style.display = 'flex';
+
+        // Use setTimeout to ensure the progress indicator is shown
+        setTimeout(() => {
+            html2canvas(containerToCapture, {
+                useCORS: true,
+                allowTaint: false,
+                backgroundColor: null,
+                scale: 2,
+                width: containerToCapture.offsetWidth,
+                height: containerToCapture.offsetHeight,
+                windowWidth: containerToCapture.scrollWidth,
+                windowHeight: containerToCapture.scrollHeight,
+            }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = `iris_map_${Date.now()}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                progressIndicator.style.display = 'none';
+            }).catch(error => {
+                console.error('Error saving image:', error);
+                alert('Failed to save the image. Please try again.');
+                progressIndicator.style.display = 'none';
+            });
+        }, 100);
+    });
+
+    // SVG and opacity controls
+    opacitySlider?.addEventListener('input', function() {
+        const newOpacity = parseFloat(this.value);
+        if (isDualViewActive) {
+            leftSvgContainer.style.opacity = newOpacity;
+            rightSvgContainer.style.opacity = newOpacity;
+            svgSettings['L'].opacity = newOpacity;
+            svgSettings['R'].opacity = newOpacity;
+        } else {
+            svgContainer.style.opacity = newOpacity;
+            svgSettings[currentEye].opacity = newOpacity;
+        }
+    });
+
+    mapColor?.addEventListener('input', function() {
+        const newColor = this.value;
+        if (isDualViewActive) {
+            changeMapColor(newColor, 'L');
+            changeMapColor(newColor, 'R');
+        } else {
+            changeMapColor(newColor, currentEye);
+        }
+    });
+
+    // Map selection modal
+    document.getElementById('selectMap')?.addEventListener('click', () => {
+        if (!mapModal || !mapOptions) return;
+        
+        mapModal.style.display = 'block';
+        mapOptions.innerHTML = '';
+        
+        availableMaps.forEach(map => {
+            const option = document.createElement('div');
+            option.className = 'map-option';
+            option.textContent = map;
+            option.onclick = function() {
+                currentMap = map; // Update currentMap
+                if (isDualViewActive) {
+                    loadSVG(currentMap, 'L');
+                    loadSVG(currentMap, 'R');
+                } else {
+                    loadSVG(currentMap, currentEye);
+                }
+                mapModal.style.display = 'none';
+            };
+            mapOptions.appendChild(option);
+        });
+    });
+
+    // Custom map upload
+    document.getElementById('customMap')?.addEventListener('click', () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.svg';
+        input.onchange = e => {
+            const file = e.target?.files?.[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = event => {
+                if (!event.target?.result) return;
+                const sanitizedSvg = DOMPurify.sanitize(event.target.result, { USE_PROFILES: { svg: true } });
+                
+                currentMap = 'custom'; // Set to custom map
+                customSvgContent = sanitizedSvg; // Store custom SVG content
+                
+                if (isDualViewActive) {
+                    if (leftSvgContainer) {
+                        leftSvgContainer.innerHTML = customSvgContent;
+                        setupSvgElement(leftSvgContainer, 'L');
+                    }
+                    if (rightSvgContainer) {
+                        rightSvgContainer.innerHTML = customSvgContent;
+                        setupSvgElement(rightSvgContainer, 'R');
+                    }
+                } else if (svgContainer) {
+                    svgContainer.innerHTML = customSvgContent;
+                    setupSvgElement(svgContainer, currentEye);
+                }
+            };
+            reader.readAsText(file);
+        };
+        input.click();
+    });
+
+    // Modal controls
+    closeBtn?.addEventListener('click', () => {
+        if (mapModal) mapModal.style.display = 'none';
+    });
+
+    window.addEventListener('click', function(event) {
+        if (event.target === mapModal) {
+            mapModal.style.display = 'none';
+        }
+    });
+
+    // Notes functionality
+    document.getElementById('notes')?.addEventListener('click', () => {
+        const notes = prompt('Enter notes:');
+        if (notes) {
+            console.log('Notes saved:', notes);
+            alert('Notes saved successfully!');
+        }
+    });
+
+    // SVG handling functions
+    function loadSVG(svgFile, eye = currentEye) {
+        const container = isDualViewActive ? 
+            (eye === 'L' ? leftSvgContainer : rightSvgContainer) : svgContainer;
+        
+        if (!container) return;
+
+        if (currentMap === 'custom') {
+            // Inject custom SVG content directly
+            container.innerHTML = customSvgContent;
+            setupSvgElement(container, eye);
+            svgSettings[eye].svgContent = customSvgContent;
+        } else {
+            fetch(`grids/${currentMap}_${eye}.svg`)
+                .then(response => response.text())
+                .then(svgContent => {
+                    if (!container) return;
+                    const sanitizedSVG = DOMPurify.sanitize(svgContent, { 
+                        USE_PROFILES: { svg: true, svgFilters: true } 
+                    });
+                    container.innerHTML = sanitizedSVG;
+                    svgSettings[eye].svgContent = sanitizedSVG;
+                    setupSvgElement(container, eye);
+                })
+                .catch(error => {
+                    console.error('Error loading SVG:', error);
+                    if (container) container.innerHTML = '';
+                    alert(`Failed to load SVG: ${currentMap}_${eye}.svg`);
+                });
+        }
+    }
+
+    function setupSvgElement(container, eye) {
+        const svgElement = container?.querySelector('svg');
+        if (!svgElement) return;
+
+        svgElement.setAttribute('width', '100%');
+        svgElement.setAttribute('height', '100%');
+        svgElement.style.pointerEvents = 'none';
+        svgElement.style.userSelect = 'none';
+        
+        if (container) {
+            container.style.opacity = svgSettings[eye].opacity;
+        }
+        
+        const svgTexts = svgElement.querySelectorAll('text');
+        svgTexts.forEach(text => {
+            text.style.userSelect = 'none';
+        });
+    }
+
+    function changeMapColor(color, eye) {
+        const container = isDualViewActive ? 
+            (eye === 'L' ? leftSvgContainer : rightSvgContainer) : svgContainer;
+        
+        if (!container) return;
+
+        const svgElements = container.querySelectorAll('svg path, svg line, svg circle');
+        svgElements.forEach(element => {
+            element.setAttribute('stroke', color);
+        });
+        
+        svgSettings[eye].mapColor = color;
+    }
+
+    // Initialize the application
+    function initialize() {
+        if (histogramCanvas) {
+            histogramCanvas.width = histogramCanvas.offsetWidth || 300;
+            histogramCanvas.height = histogramCanvas.offsetHeight || 150;
+            histogramCanvas.width = histogramCanvas.offsetWidth;
+            histogramCanvas.height = histogramCanvas.offsetHeight;
+        }
+
+        // Load default map for both eyes initially
+        loadSVG(currentMap, 'L');
+        loadSVG(currentMap, 'R');
         setupEnhancedAdjustmentControls();
 
         // Make control panels draggable
@@ -1217,4 +1589,3 @@ function setupGalleryItemEvents(galleryItem, imageDataUrl) {
     // Start the application
     initialize();
 });
-
