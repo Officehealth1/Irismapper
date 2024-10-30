@@ -19,7 +19,16 @@ document.addEventListener('DOMContentLoaded', function() {
     const controls = document.querySelectorAll('.controls');
     const galleryAccordion = document.getElementById('galleryAccordion');
     const addImageBtn = document.getElementById('addImageBtn');
-    const availableMaps = ['Angerer_DE_01', 'Bourdil_FR_01', 'IrisLAB_EN_02', 'IrisLAB_FR_02', 'Jaussas_FR_01', 'Jensen_EN_01', 'Jensen_FR_01', 'Roux_FR_01'];
+    const availableMaps = [
+        'Angerer_Map_DE_V1',
+        'Bourdil_Map_FR_V1',
+        'IrisLAB_Map_EN_V2',
+        'IrisLAB_Map_FR_V2',
+        'Jaussas_Map_FR_V1',
+        'Jensen_Map_EN_V1',
+        'Jensen_Map_FR_V1',
+        'Roux_Map_FR_V1'
+    ];
 
     const adjustmentSliders = {
         exposure: document.getElementById('exposureSlider'),
@@ -1307,3 +1316,4 @@ document.addEventListener('DOMContentLoaded', function() {
         img.src = imageDataUrl;
     }
 });
+
