@@ -1,5 +1,3 @@
-// script.js
-
 document.addEventListener('DOMContentLoaded', function() {
     // Element References
     const singleMapperContainer = document.getElementById('single-mapper-container');
@@ -15,11 +13,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const mapColor = document.getElementById('mapColor');
     const mapModal = document.getElementById('mapModal');
     const mapOptions = document.getElementById('mapOptions');
-    const closeBtn = document.getElementsByClassName('close')[0];
+    const closeBtn = document.querySelector('.close');
     const histogramCanvas = document.getElementById('histogramCanvas');
-    const galleryAccordion = document.getElementById('galleryAccordion');
     const progressIndicator = document.getElementById('progressIndicator');
     const controls = document.querySelectorAll('.controls');
+    const galleryAccordion = document.getElementById('galleryAccordion');
+    const addImageBtn = document.getElementById('addImageBtn');
     const availableMaps = ['Angerer_DE_01', 'Bourdil_FR_01', 'IrisLAB_EN_02', 'IrisLAB_FR_02', 'Jaussas_FR_01', 'Jensen_EN_01', 'Jensen_FR_01', 'Roux_FR_01'];
 
     const adjustmentSliders = {
@@ -85,43 +84,31 @@ document.addEventListener('DOMContentLoaded', function() {
         };
     }
 
-    // Histogram Functionality using Inline Web Worker
-    let histogramWorker;
-
-    function initializeHistogramWorker() {
-        const workerScript = `
-            self.onmessage = function(e) {
-                const { imageData } = e.data;
-                const data = imageData.data;
-                const red = new Uint32Array(256);
-                const green = new Uint32Array(256);
-                const blue = new Uint32Array(256);
-
-                for (let i = 0; i < data.length; i += 4) {
-                    red[data[i]]++;
-                    green[data[i + 1]]++;
-                    blue[data[i + 2]]++;
-                }
-
-                self.postMessage({ red: Array.from(red), green: Array.from(green), blue: Array.from(blue) });
-            };
-        `;
-        const blob = new Blob([workerScript], { type: 'application/javascript' });
-        const workerURL = URL.createObjectURL(blob);
-        histogramWorker = new Worker(workerURL);
-        histogramWorker.onmessage = function(e) {
-            drawHistogram(e.data);
-        };
-    }
+    // Histogram Data
+    let histogramData = null;
 
     function updateHistogram() {
         const settings = isDualViewActive ? imageSettings['L'] : imageSettings[currentEye];
-        if (!settings.canvas || !histogramWorker) return;
+        if (!settings.canvas) return;
 
         const canvas = settings.canvas;
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        histogramWorker.postMessage({ imageData: imageData });
+
+        const data = imageData.data;
+        const length = data.length;
+        const histogramR = new Uint32Array(256);
+        const histogramG = new Uint32Array(256);
+        const histogramB = new Uint32Array(256);
+
+        for (let i = 0; i < length; i += 4) {
+            histogramR[data[i]]++;
+            histogramG[data[i + 1]]++;
+            histogramB[data[i + 2]]++;
+        }
+
+        histogramData = { red: histogramR, green: histogramG, blue: histogramB };
+        drawHistogram(histogramData);
     }
 
     function drawHistogram(histogramData) {
@@ -149,7 +136,7 @@ document.addEventListener('DOMContentLoaded', function() {
         channels.forEach(channel => {
             ctx.beginPath();
             ctx.strokeStyle = channel.color;
-            ctx.lineWidth = 2;
+            ctx.lineWidth = 1;
 
             for (let i = 0; i < 256; i++) {
                 const x = (i / 255) * width;
@@ -269,7 +256,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 startTranslateX = settings.translateX;
                 startTranslateY = settings.translateY;
             }
-            canvas.style.cursor = 'grabbing';
+            canvas.style.cursor = isRotating ? 'crosshair' : 'grabbing';
         }
 
         function handleDragMove(e) {
@@ -391,30 +378,19 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
 
-        // Shadows and Highlights (approximated)
-        if (settings.adjustments.shadows !== 0) {
-            const shadows = settings.adjustments.shadows;
-            filters.push(`brightness(${(100 + shadows) / 100})`);
-        }
-
-        if (settings.adjustments.highlights !== 0) {
-            const highlights = settings.adjustments.highlights;
-            filters.push(`contrast(${(100 + highlights) / 100})`);
-        }
-
-        // Sharpness (approximated using contrast)
-        if (settings.adjustments.sharpness !== 0) {
-            const sharpness = settings.adjustments.sharpness;
-            filters.push(`contrast(${(100 + sharpness) / 100})`);
-        }
-
         // Blur
         if (settings.adjustments.blur !== 0) {
             filters.push(`blur(${settings.adjustments.blur}px)`);
         }
 
         ctx.filter = filters.join(' ');
-        ctx.drawImage(img, 0, 0, width, height);
+
+        if (settings.adjustments.shadows !== 0 || settings.adjustments.highlights !== 0) {
+            applyShadowsHighlights(ctx, img, settings, filters);
+        } else {
+            ctx.drawImage(img, 0, 0, width, height);
+        }
+
         ctx.restore();
         applyCustomAdjustments(ctx, eye, settings);
         updateCanvasTransform(eye);
@@ -422,10 +398,148 @@ document.addEventListener('DOMContentLoaded', function() {
         updateHistogram();
     }
 
+    function applyShadowsHighlights(ctx, img, settings, filters) {
+        const width = img.naturalWidth;
+        const height = img.naturalHeight;
+
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = width;
+        tempCanvas.height = height;
+        const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+
+        tempCtx.filter = ctx.filter; // Apply existing filters
+        tempCtx.drawImage(img, 0, 0, width, height);
+        let imageData = tempCtx.getImageData(0, 0, width, height);
+        let data = imageData.data;
+
+        const shadows = settings.adjustments.shadows / 100;
+        const highlights = settings.adjustments.highlights / 100;
+
+        for (let i = 0; i < data.length; i += 4) {
+            // Convert RGB to HSL
+            let [h, s, l] = rgbToHsl(data[i], data[i + 1], data[i + 2]);
+
+            if (l < 0.5) {
+                // Shadows adjustment
+                l += l * shadows;
+                l = Math.min(1, Math.max(0, l));
+            } else {
+                // Highlights adjustment
+                l += (1 - l) * highlights;
+                l = Math.min(1, Math.max(0, l));
+            }
+
+            // Convert HSL back to RGB
+            const [r, g, b] = hslToRgb(h, s, l);
+            data[i] = r;
+            data[i + 1] = g;
+            data[i + 2] = b;
+        }
+
+        tempCtx.putImageData(imageData, 0, 0);
+
+        ctx.drawImage(tempCanvas, 0, 0, width, height);
+    }
+
+    function rgbToHsl(r, g, b) {
+        r /= 255; g /= 255; b /= 255;
+        let max = Math.max(r, g, b), min = Math.min(r, g, b);
+        let h, s, l = (max + min) / 2;
+    
+        if(max === min){
+            h = s = 0; // achromatic
+        } else {
+            let d = max - min;
+            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+            switch(max){
+                case r: h = ((g - b) / d + (g < b ? 6 : 0)); break;
+                case g: h = ((b - r) / d + 2); break;
+                case b: h = ((r - g) / d + 4); break;
+            }
+            h /= 6;
+        }
+    
+        return [h, s, l];
+    }
+    
+    function hslToRgb(h, s, l){
+        let r, g, b;
+    
+        if(s === 0){
+            r = g = b = l; // achromatic
+        } else {
+            function hue2rgb(p, q, t){
+                if(t < 0) t += 1;
+                if(t > 1) t -= 1;
+                if(t < 1/6) return p + (q - p) * 6 * t;
+                if(t < 1/2) return q;
+                if(t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+                return p;
+            }
+    
+            let q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+            let p = 2 * l - q;
+    
+            r = hue2rgb(p, q, h + 1/3);
+            g = hue2rgb(p, q, h);
+            b = hue2rgb(p, q, h - 1/3);
+        }
+    
+        return [r * 255, g * 255, b * 255];
+    }
+
     function applyCustomAdjustments(ctx, eye, settings) {
-        // Additional adjustments like shadows and highlights can be implemented here if needed
-        // For more advanced adjustments, consider using canvas pixel manipulation or WebGL shaders
-        // This function is a placeholder for any future custom adjustments
+        // Implement sharpness using convolution filter
+        if (settings.adjustments.sharpness !== 0) {
+            const amount = settings.adjustments.sharpness / 100;
+            const width = ctx.canvas.width;
+            const height = ctx.canvas.height;
+            const imageData = ctx.getImageData(0, 0, width, height);
+
+            const weights = [
+                0, -1 * amount, 0,
+                -1 * amount, 4 * amount + 1, -1 * amount,
+                0, -1 * amount, 0
+            ];
+
+            convolve(imageData, weights);
+            ctx.putImageData(imageData, 0, 0);
+        }
+    }
+
+    function convolve(imageData, weights) {
+        const pixels = imageData.data;
+        const width = imageData.width;
+        const height = imageData.height;
+        const side = Math.round(Math.sqrt(weights.length));
+        const halfSide = Math.floor(side / 2);
+
+        const output = new Uint8ClampedArray(pixels.length);
+
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                let r = 0, g = 0, b = 0;
+                for (let cy = 0; cy < side; cy++) {
+                    for (let cx = 0; cx < side; cx++) {
+                        const scy = y + cy - halfSide;
+                        const scx = x + cx - halfSide;
+                        if (scy >= 0 && scy < height && scx >= 0 && scx < width) {
+                            const offset = (scy * width + scx) * 4;
+                            const wt = weights[cy * side + cx];
+                            r += pixels[offset] * wt;
+                            g += pixels[offset + 1] * wt;
+                            b += pixels[offset + 2] * wt;
+                        }
+                    }
+                }
+                const offset = (y * width + x) * 4;
+                output[offset] = r;
+                output[offset + 1] = g;
+                output[offset + 2] = b;
+                output[offset + 3] = pixels[offset + 3];
+            }
+        }
+        imageData.data.set(output);
     }
 
     function updateCanvasTransform(eye) {
@@ -479,66 +593,6 @@ document.addEventListener('DOMContentLoaded', function() {
         updateCanvasTransform(currentEye);
 
         settings.isAutoFitted = true;
-    }
-
-    function addToGallery(imageDataUrl, name) {
-        const galleryItem = document.createElement('div');
-        galleryItem.className = 'gallery-item';
-        galleryItem.innerHTML = `
-            <div class="gallery-item-header">
-                <span class="image-name">${name}</span>
-                <div class="gallery-item-controls">
-                    <button class="btn rename-btn">Rename</button>
-                    <button class="btn load-btn">Load</button>
-                </div>
-            </div>
-            <div class="gallery-item-content">
-                <img src="${imageDataUrl}" alt="${name}" loading="lazy">
-            </div>
-        `;
-
-        setupGalleryItemEvents(galleryItem, imageDataUrl);
-        galleryAccordion.appendChild(galleryItem);
-    }
-
-    function setupGalleryItemEvents(galleryItem, imageDataUrl) {
-        const imageNameElement = galleryItem.querySelector('.image-name');
-        const renameBtn = galleryItem.querySelector('.rename-btn');
-        const loadBtn = galleryItem.querySelector('.load-btn');
-        
-        renameBtn.addEventListener('click', function(e) {
-            e.stopPropagation();
-            const currentName = imageNameElement.textContent;
-            const newName = prompt('Enter new name:', currentName);
-            if (newName?.trim()) {
-                imageNameElement.textContent = newName.trim();
-            }
-        });
-
-        loadBtn.addEventListener('click', function(e) {
-            e.stopPropagation();
-            loadImageFromGallery(imageDataUrl);
-        });
-    }
-
-    function loadImageFromGallery(imageDataUrl) {
-        const img = new Image();
-        img.onload = function() {
-            if (isDualViewActive) {
-                imageSettings['L'].image = img;
-                imageSettings['R'].image = img;
-                createCanvasForEye('L');
-                createCanvasForEye('R');
-                loadImageForSpecificEye('L');
-                loadImageForSpecificEye('R');
-            } else {
-                imageSettings[currentEye].image = img;
-                createCanvasForEye(currentEye);
-                loadImageForSpecificEye(currentEye);
-            }
-            resetAdjustments();
-        };
-        img.src = imageDataUrl;
     }
 
     function resetAdjustments() {
@@ -777,14 +831,11 @@ document.addEventListener('DOMContentLoaded', function() {
         mapModal.style.display = 'block';
         mapOptions.innerHTML = '';
 
+        // Populate map options as a simple list
         availableMaps.forEach(map => {
             const option = document.createElement('div');
             option.className = 'map-option';
-            // Assuming you have thumbnail images named as map + '.png' in a 'thumbnails' folder
-            option.innerHTML = `
-                <img src="thumbnails/${map}.png" alt="${map}">
-                <span>${map}</span>
-            `;
+            option.innerHTML = `<span>${map}</span>`;
             option.onclick = function() {
                 currentMap = map;
                 if (isDualViewActive) {
@@ -942,6 +993,49 @@ document.addEventListener('DOMContentLoaded', function() {
         svgSettings[eye].mapColor = color;
     }
 
+    // Auto Levels Functionality
+    document.getElementById('autoLevels')?.addEventListener('click', () => {
+        if (!histogramData) return;
+
+        const settings = isDualViewActive ? ['L', 'R'] : [currentEye];
+        settings.forEach(eye => {
+            const adjustments = imageSettings[eye].adjustments;
+            const histogram = histogramData;
+
+            // Calculate mean brightness
+            const totalPixels = histogram.red.reduce((a, b) => a + b, 0);
+            const meanBrightness = (histogram.red.reduce((sum, val, idx) => sum + val * idx, 0) +
+                histogram.green.reduce((sum, val, idx) => sum + val * idx, 0) +
+                histogram.blue.reduce((sum, val, idx) => sum + val * idx, 0)) / (totalPixels * 3);
+
+            // Adjust exposure based on mean brightness
+            adjustments.exposure = (128 - meanBrightness) / 128 * 100;
+
+            // Adjust contrast based on histogram spread
+            const minBrightness = Math.min(
+                histogram.red.findIndex(val => val > 0),
+                histogram.green.findIndex(val => val > 0),
+                histogram.blue.findIndex(val => val > 0)
+            );
+            const maxBrightness = Math.max(
+                255 - [...histogram.red].reverse().findIndex(val => val > 0),
+                255 - [...histogram.green].reverse().findIndex(val => val > 0),
+                255 - [...histogram.blue].reverse().findIndex(val => val > 0)
+            );
+            const brightnessRange = maxBrightness - minBrightness;
+
+            adjustments.contrast = ((255 / brightnessRange) - 1) * 100;
+
+            // Update sliders and images
+            adjustmentSliders.exposure.value = adjustments.exposure;
+            adjustmentSliders.contrast.value = adjustments.contrast;
+            adjustmentSliders.exposure.parentElement.querySelector('.adjustment-value').textContent = adjustments.exposure.toFixed(0);
+            adjustmentSliders.contrast.parentElement.querySelector('.adjustment-value').textContent = adjustments.contrast.toFixed(0);
+
+            updateCanvasImage(eye);
+        });
+    });
+
     // Utility functions
     function debounce(func, wait) {
         let timeout;
@@ -996,13 +1090,14 @@ document.addEventListener('DOMContentLoaded', function() {
             mapColor.value = svgSettings[currentEye].mapColor;
         }
 
-        initializeHistogramWorker();
+        // Initialize gallery
+        galleryAccordion.style.display = 'block';
     }
 
     // Start the application
     initialize();
 
-    // Event Listeners for Image Upload and Add Image Button
+    // Event Listeners for Image Upload
     imageUpload.addEventListener('change', function(e) {
         const files = e.target.files;
         if (!files.length) return;
@@ -1035,7 +1130,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    document.querySelector('.add-image-btn')?.addEventListener('click', function() {
+    addImageBtn.addEventListener('click', function() {
         imageUpload.click();
     });
 
@@ -1144,4 +1239,71 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('moveDown')?.addEventListener('click', () => moveImage('down'));
     document.getElementById('moveLeft')?.addEventListener('click', () => moveImage('left'));
     document.getElementById('moveRight')?.addEventListener('click', () => moveImage('right'));
+
+    // Gallery Functions
+    function addToGallery(imageDataUrl, name) {
+        const galleryItem = document.createElement('div');
+        galleryItem.className = 'gallery-item';
+        galleryItem.innerHTML = `
+            <div class="gallery-item-header">
+                <span class="image-name">${name}</span>
+                <div class="gallery-item-controls">
+                    <button class="btn rename-btn">Rename</button>
+                    <button class="btn load-btn">Load</button>
+                </div>
+            </div>
+            <div class="gallery-item-content">
+                <img src="${imageDataUrl}" alt="${name}" loading="lazy">
+            </div>
+        `;
+
+        setupGalleryItemEvents(galleryItem, imageDataUrl);
+        galleryAccordion.appendChild(galleryItem);
+    }
+
+    function setupGalleryItemEvents(galleryItem, imageDataUrl) {
+        const imageNameElement = galleryItem.querySelector('.image-name');
+        const renameBtn = galleryItem.querySelector('.rename-btn');
+        const loadBtn = galleryItem.querySelector('.load-btn');
+        
+        renameBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const currentName = imageNameElement.textContent;
+            const newName = prompt('Enter new name:', currentName);
+            if (newName?.trim()) {
+                imageNameElement.textContent = newName.trim();
+            }
+        });
+
+        loadBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            loadImageFromGallery(imageDataUrl);
+        });
+
+        // Toggle gallery item content
+        galleryItem.querySelector('.gallery-item-header').addEventListener('click', function() {
+            const content = galleryItem.querySelector('.gallery-item-content');
+            content.classList.toggle('active');
+        });
+    }
+
+    function loadImageFromGallery(imageDataUrl) {
+        const img = new Image();
+        img.onload = function() {
+            if (isDualViewActive) {
+                imageSettings['L'].image = img;
+                imageSettings['R'].image = img;
+                createCanvasForEye('L');
+                createCanvasForEye('R');
+                loadImageForSpecificEye('L');
+                loadImageForSpecificEye('R');
+            } else {
+                imageSettings[currentEye].image = img;
+                createCanvasForEye(currentEye);
+                loadImageForSpecificEye(currentEye);
+            }
+            resetAdjustments();
+        };
+        img.src = imageDataUrl;
+    }
 });
