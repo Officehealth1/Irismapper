@@ -978,7 +978,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (!container) return;
 
-        const svgElements = container.querySelectorAll('svg path, svg line, svg circle, svg polygon, svg polyline, svg ellipse, svg rect');
+        const svgElements = container.querySelectorAll('svg path, svg line, svg circle, svg polygon, svg polyline, svg ellipse, svg rect, svg text');
         svgElements.forEach(element => {
             const tag = element.tagName.toLowerCase();
             // Define which tags should have fill modified
@@ -996,7 +996,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (currentFill && currentFill !== 'none') {
                     element.setAttribute('fill', color);
                 }
+                
             }
+            if (element.tagName.toLowerCase() === 'text') {
+                element.setAttribute('fill', color);
+              }
+              
         });
         
         svgSettings[eye].mapColor = color;
