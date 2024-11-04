@@ -189,10 +189,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const container = slider.parentElement;
             const valueDisplay = container.querySelector('.adjustment-value');
 
-            slider.addEventListener('input', function() {
-                const value = parseFloat(this.value);
+            const debouncedUpdate = debounce(function() {
+                const value = parseFloat(slider.value);
                 valueDisplay.textContent = value;
-
+            
                 if (isDualViewActive) {
                     ['L', 'R'].forEach(eye => {
                         imageSettings[eye].adjustments[adjustment] = value;
@@ -202,7 +202,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     imageSettings[currentEye].adjustments[adjustment] = value;
                     updateCanvasImage(currentEye);
                 }
-            });
+            }, 100); // Adjust the debounce delay as needed
+            
+            slider.addEventListener('input', debouncedUpdate);
+            
         });
     }
 
@@ -345,110 +348,128 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateCanvasImage(eye) {
         const settings = imageSettings[eye];
         if (!settings.canvas || !settings.context || !settings.image) return;
-
+    
+        // Create or get offscreen canvas
+        if (!settings.offscreenCanvas) {
+            settings.offscreenCanvas = new OffscreenCanvas(
+                settings.image.naturalWidth,
+                settings.image.naturalHeight
+            );
+            settings.offscreenCtx = settings.offscreenCanvas.getContext('2d', {
+                willReadFrequently: true
+            });
+        }
+    
         const ctx = settings.context;
+        const offCtx = settings.offscreenCtx;
         const canvas = settings.canvas;
         const img = settings.image;
-
         const width = img.naturalWidth;
         const height = img.naturalHeight;
-
-        canvas.width = width;
-        canvas.height = height;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        ctx.save();
-        // Apply all adjustments
-        const filters = [];
-
-        // Exposure
-        filters.push(`brightness(${(100 + settings.adjustments.exposure) / 100})`);
-
-        // Contrast
-        filters.push(`contrast(${(100 + settings.adjustments.contrast) / 100})`);
-
-        // Saturation
-        filters.push(`saturate(${(100 + settings.adjustments.saturation) / 100})`);
-
-        // Hue
-        filters.push(`hue-rotate(${settings.adjustments.hue}deg)`);
-
-        // Temperature (approximated using sepia and hue-rotate)
+    
+        // Only resize if dimensions changed
+        if (canvas.width !== width || canvas.height !== height) {
+            canvas.width = width;
+            canvas.height = height;
+            settings.offscreenCanvas.width = width;
+            settings.offscreenCanvas.height = height;
+        }
+    
+        offCtx.clearRect(0, 0, width, height);
+        offCtx.save();
+    
+        // Batch filters for better performance
+        const filters = [
+            `brightness(${(100 + settings.adjustments.exposure) / 100})`,
+            `contrast(${(100 + settings.adjustments.contrast) / 100})`,
+            `saturate(${(100 + settings.adjustments.saturation) / 100})`,
+            `hue-rotate(${settings.adjustments.hue}deg)`
+        ];
+    
+        // Only add conditional filters if needed
         if (settings.adjustments.temperature !== 0) {
             const temp = settings.adjustments.temperature;
-            if (temp > 0) {
-                // Warmer
-                filters.push(`sepia(${temp}%)`);
-                filters.push(`hue-rotate(10deg)`);
-            } else {
-                // Cooler
-                filters.push(`sepia(${Math.abs(temp)}%)`);
-                filters.push(`hue-rotate(-10deg)`);
-            }
+            filters.push(`sepia(${Math.abs(temp)}%)`);
+            filters.push(`hue-rotate(${temp > 0 ? 10 : -10}deg)`);
         }
-
-        // Blur
+    
         if (settings.adjustments.blur !== 0) {
             filters.push(`blur(${settings.adjustments.blur}px)`);
         }
-
-        ctx.filter = filters.join(' ');
-
-        if (settings.adjustments.shadows !== 0 || settings.adjustments.highlights !== 0) {
-            applyShadowsHighlights(ctx, img, settings, filters);
-        } else {
-            ctx.drawImage(img, 0, 0, width, height);
-        }
-
-        ctx.restore();
-        applyCustomAdjustments(ctx, eye, settings);
-        updateCanvasTransform(eye);
-
-        updateHistogram();
-    }
-
-    function applyShadowsHighlights(ctx, img, settings, filters) {
-        const width = img.naturalWidth;
-        const height = img.naturalHeight;
-
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = width;
-        tempCanvas.height = height;
-        const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
-
-        tempCtx.filter = ctx.filter; // Apply existing filters
-        tempCtx.drawImage(img, 0, 0, width, height);
-        let imageData = tempCtx.getImageData(0, 0, width, height);
-        let data = imageData.data;
-
-        const shadows = settings.adjustments.shadows / 100;
-        const highlights = settings.adjustments.highlights / 100;
-
-        for (let i = 0; i < data.length; i += 4) {
-            // Convert RGB to HSL
-            let [h, s, l] = rgbToHsl(data[i], data[i + 1], data[i + 2]);
-
-            if (l < 0.5) {
-                // Shadows adjustment
-                l += l * shadows;
-                l = Math.min(1, Math.max(0, l));
+    
+        offCtx.filter = filters.join(' ');
+    
+        // Use requestAnimationFrame for smoother rendering
+        requestAnimationFrame(() => {
+            if (settings.adjustments.shadows !== 0 || settings.adjustments.highlights !== 0) {
+                applyShadowsHighlights(offCtx, img, settings);
             } else {
-                // Highlights adjustment
-                l += (1 - l) * highlights;
-                l = Math.min(1, Math.max(0, l));
+                offCtx.drawImage(img, 0, 0, width, height);
             }
-
-            // Convert HSL back to RGB
-            const [r, g, b] = hslToRgb(h, s, l);
-            data[i] = r;
-            data[i + 1] = g;
-            data[i + 2] = b;
-        }
-
-        tempCtx.putImageData(imageData, 0, 0);
-
-        ctx.drawImage(tempCanvas, 0, 0, width, height);
+    
+            offCtx.restore();
+            
+            // Apply custom adjustments to offscreen canvas
+            if (settings.adjustments.sharpness !== 0) {
+                applySharpness(offCtx, settings.adjustments.sharpness);
+            }
+    
+            // Copy to main canvas
+            ctx.clearRect(0, 0, width, height);
+            ctx.drawImage(settings.offscreenCanvas, 0, 0);
+            
+            // Update transform
+            updateCanvasTransform(eye);
+            
+            // Debounce histogram update
+            if (!settings.histogramTimeout) {
+                settings.histogramTimeout = setTimeout(() => {
+                    updateHistogram();
+                    settings.histogramTimeout = null;
+                }, 100);
+            }
+        });
     }
+
+function applyShadowsHighlights(ctx, img, settings) {
+    const width = img.naturalWidth;
+    const height = img.naturalHeight;
+    
+    // Draw original image
+    ctx.drawImage(img, 0, 0, width, height);
+    
+    // Create temporary buffer only if needed
+    if (!settings.tempCanvas) {
+        settings.tempCanvas = new OffscreenCanvas(width, height);
+        settings.tempCtx = settings.tempCanvas.getContext('2d');
+    }
+    
+    const tempCtx = settings.tempCtx;
+    const tempCanvas = settings.tempCanvas;
+
+    tempCtx.clearRect(0, 0, width, height);
+    tempCtx.drawImage(img, 0, 0);
+
+    // Shadows adjustment with improved algorithm
+    if (settings.adjustments.shadows !== 0) {
+        const shadowStrength = Math.min(Math.abs(settings.adjustments.shadows) / 100, 0.8);
+        tempCtx.globalCompositeOperation = 'multiply';
+        tempCtx.fillStyle = `rgba(0, 0, 0, ${shadowStrength})`;
+        tempCtx.fillRect(0, 0, width, height);
+    }
+
+    // Highlights adjustment with improved algorithm
+    if (settings.adjustments.highlights !== 0) {
+        const highlightStrength = Math.min(Math.abs(settings.adjustments.highlights) / 100, 0.8);
+        tempCtx.globalCompositeOperation = 'screen';
+        tempCtx.fillStyle = `rgba(255, 255, 255, ${highlightStrength})`;
+        tempCtx.fillRect(0, 0, width, height);
+    }
+
+    // Apply the adjusted image
+    ctx.drawImage(tempCanvas, 0, 0);
+}
+    
 
     function rgbToHsl(r, g, b) {
         r /= 255; g /= 255; b /= 255;
