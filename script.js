@@ -1152,8 +1152,230 @@ function applyShadowsHighlights(ctx, img, settings) {
         loadSVG(currentMap, 'R');
         setupAdjustmentSliders();
 
-        controls.forEach(control => {
-            makeElementDraggable(control);
+        class MobileUIManager {
+            constructor() {
+                this.menuState = {
+                    isOpen: false,
+                    activePanel: null
+                };
+                this.touchStartX = 0;
+                this.touchStartY = 0;
+                this.menuContainer = document.getElementById('menuContainer');
+                this.initializeMobileMenu();
+            }
+        
+            initializeMobileMenu() {
+                // Create mobile menu toggle
+                const menuToggle = document.createElement('button');
+                menuToggle.className = 'mobile-menu-toggle';
+                menuToggle.innerHTML = `
+                    <svg width="24" height="24" viewBox="0 0 24 24">
+                        <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
+                    </svg>
+                `;
+                document.body.appendChild(menuToggle);
+        
+                // Create bottom navigation
+                const bottomNav = document.createElement('div');
+                bottomNav.className = 'bottom-navigation';
+                bottomNav.innerHTML = `
+                    <div class="nav-item" data-panel="transform">
+                        <svg><!-- Transform icon --></svg>
+                        <span>Transform</span>
+                    </div>
+                    <div class="nav-item" data-panel="adjustments">
+                        <svg><!-- Adjustments icon --></svg>
+                        <span>Adjust</span>
+                    </div>
+                    <div class="nav-item" data-panel="maps">
+                        <svg><!-- Maps icon --></svg>
+                        <span>Maps</span>
+                    </div>
+                `;
+                document.body.appendChild(bottomNav);
+        
+                this.setupEventListeners();
+            }
+        
+            setupEventListeners() {
+                // Touch event handling
+                document.addEventListener('touchstart', this.handleTouchStart.bind(this));
+                document.addEventListener('touchmove', this.handleTouchMove.bind(this));
+                document.addEventListener('touchend', this.handleTouchEnd.bind(this));
+        
+                // Panel navigation
+                const navItems = document.querySelectorAll('.nav-item');
+                navItems.forEach(item => {
+                    item.addEventListener('click', () => this.togglePanel(item.dataset.panel));
+                });
+            }
+        
+            handleTouchStart(e) {
+                this.touchStartX = e.touches[0].clientX;
+                this.touchStartY = e.touches[0].clientY;
+            }
+        
+            handleTouchMove(e) {
+                if (!this.touchStartX || !this.touchStartY) return;
+        
+                const xDiff = this.touchStartX - e.touches[0].clientX;
+                const yDiff = this.touchStartY - e.touches[0].clientY;
+        
+                // Implement swipe logic
+                if (Math.abs(xDiff) > Math.abs(yDiff)) {
+                    if (xDiff > 0) {
+                        // Swipe left - close panel
+                        this.closeActivePanel();
+                    } else {
+                        // Swipe right - open panel
+                        this.openLastPanel();
+                    }
+                }
+            }
+        
+            togglePanel(panelId) {
+                const panel = document.querySelector(`.panel-${panelId}`);
+                if (this.menuState.activePanel === panelId) {
+                    this.closeActivePanel();
+                } else {
+                    this.openPanel(panelId);
+                }
+            }
+        }
+        
+        // 2. TOUCH-OPTIMIZED CONTROLS
+        // --------------------------
+        class TouchControls {
+            constructor() {
+                this.initializeControls();
+            }
+        
+            initializeControls() {
+                // Transform existing sliders into touch-friendly versions
+                const sliders = document.querySelectorAll('.adjustment-slider');
+                sliders.forEach(slider => {
+                    this.createTouchFriendlySlider(slider);
+                });
+        
+                // Add gesture recognition for image manipulation
+                this.setupImageGestures();
+            }
+        
+            createTouchFriendlySlider(originalSlider) {
+                const touchSlider = document.createElement('div');
+                touchSlider.className = 'touch-slider';
+                touchSlider.innerHTML = `
+                    <div class="touch-slider-track">
+                        <div class="touch-slider-fill"></div>
+                        <div class="touch-slider-handle"></div>
+                    </div>
+                    <div class="touch-slider-labels">
+                        <span class="min">${originalSlider.min}</span>
+                        <span class="max">${originalSlider.max}</span>
+                    </div>
+                `;
+        
+                this.setupSliderEvents(touchSlider, originalSlider);
+                originalSlider.parentNode.replaceChild(touchSlider, originalSlider);
+            }
+        
+            setupImageGestures() {
+                const imageContainer = document.getElementById('image-container');
+                let initialDistance = 0;
+                let initialScale = 1;
+        
+                // Pinch to zoom
+                imageContainer.addEventListener('touchstart', (e) => {
+                    if (e.touches.length === 2) {
+                        initialDistance = Math.hypot(
+                            e.touches[0].pageX - e.touches[1].pageX,
+                            e.touches[0].pageY - e.touches[1].pageY
+                        );
+                        initialScale = imageSettings[currentEye].scale;
+                    }
+                });
+        
+                imageContainer.addEventListener('touchmove', (e) => {
+                    if (e.touches.length === 2) {
+                        const currentDistance = Math.hypot(
+                            e.touches[0].pageX - e.touches[1].pageX,
+                            e.touches[0].pageY - e.touches[1].pageY
+                        );
+                        const scale = (currentDistance / initialDistance) * initialScale;
+                        updateTransform('scale', scale);
+                    }
+                });
+            }
+        }
+        
+        // 3. RESPONSIVE PANELS SYSTEM
+        // --------------------------
+        class ResponsivePanels {
+            constructor() {
+                this.panels = {
+                    transform: this.createTransformPanel(),
+                    adjustments: this.createAdjustmentsPanel(),
+                    maps: this.createMapsPanel()
+                };
+                this.initializePanels();
+            }
+        
+            createTransformPanel() {
+                const panel = document.createElement('div');
+                panel.className = 'mobile-panel panel-transform';
+                panel.innerHTML = `
+                    <div class="panel-header">
+                        <h3>Transform</h3>
+                        <button class="panel-close">×</button>
+                    </div>
+                    <div class="panel-content">
+                        <!-- Transform controls -->
+                    </div>
+                `;
+                return panel;
+            }
+        
+            initializePanels() {
+                Object.values(this.panels).forEach(panel => {
+                    document.body.appendChild(panel);
+                    this.setupPanelInteractions(panel);
+                });
+            }
+        
+            setupPanelInteractions(panel) {
+                const header = panel.querySelector('.panel-header');
+                let startY = 0;
+                let currentY = 0;
+        
+                header.addEventListener('touchstart', (e) => {
+                    startY = e.touches[0].clientY;
+                    currentY = panel.getBoundingClientRect().top;
+                });
+        
+                header.addEventListener('touchmove', (e) => {
+                    const deltaY = e.touches[0].clientY - startY;
+                    panel.style.transform = `translateY(${deltaY}px)`;
+                });
+        
+                header.addEventListener('touchend', () => {
+                    const finalPosition = panel.getBoundingClientRect().top;
+                    if (finalPosition > window.innerHeight * 0.7) {
+                        this.closePanel(panel);
+                    } else {
+                        this.snapPanelToPosition(panel);
+                    }
+                });
+            }
+        }
+        
+        // 4. Initialize Mobile Optimizations
+        // --------------------------------
+        document.addEventListener('DOMContentLoaded', function() {
+            if (window.matchMedia('(max-width: 768px)').matches) {
+                const mobileUI = new MobileUIManager();
+                const touchControls = new TouchControls();
+                const responsivePanels = new ResponsivePanels();
+            }
         });
 
         const resizeHandler = debounce(() => {
@@ -1214,8 +1436,15 @@ function applyShadowsHighlights(ctx, img, settings) {
         }
     });
 
-    addImageBtn.addEventListener('click', function() {
-        imageUpload.click();
+    document.addEventListener('DOMContentLoaded', function() {
+        const addImageBtn = document.getElementById('addImageBtn');
+        const imageUpload = document.getElementById('imageUpload');
+        
+        if (addImageBtn && imageUpload) {
+            addImageBtn.addEventListener('click', () => imageUpload.click());
+        } else {
+            console.warn('Required elements not found: addImageBtn or imageUpload');
+        }
     });
 
     
