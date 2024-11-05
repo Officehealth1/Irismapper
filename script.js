@@ -62,6 +62,16 @@ document.addEventListener('DOMContentLoaded', function() {
             opacity: 0.7,
         }
     };
+    const resetButton = document.getElementById('resetAdjustments');
+    
+    // Add this with your other event listeners
+    if (resetButton) {
+        resetButton.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('Reset button clicked');
+            resetAdjustments();
+        });
+    }
     
     // Map Tracking
     let currentMap = availableMaps[0]; // Initialize with the default map
@@ -625,7 +635,12 @@ function applyShadowsHighlights(ctx, img, settings) {
         settings.isAutoFitted = true;
     }
 
+
+    
+    // Replace your existing resetAdjustments function with this updated version
     function resetAdjustments() {
+        console.log('Reset function called'); // Debug log
+    
         const defaultAdjustments = {
             exposure: 0,
             contrast: 0,
@@ -637,30 +652,63 @@ function applyShadowsHighlights(ctx, img, settings) {
             temperature: 0,
             sharpness: 0
         };
-
-        if (isDualViewActive) {
-            imageSettings['L'].adjustments = { ...defaultAdjustments };
-            imageSettings['R'].adjustments = { ...defaultAdjustments };
-        } else {
-            imageSettings[currentEye].adjustments = { ...defaultAdjustments };
-        }
-        
-        Object.entries(adjustmentSliders).forEach(([adjustment, slider]) => {
-            if (!slider) return;
+    
+        const eyesToReset = isDualViewActive ? ['L', 'R'] : [currentEye];
+        console.log('Resetting eyes:', eyesToReset); // Debug log
+    
+        eyesToReset.forEach(eye => {
+            // Reset adjustments
+            imageSettings[eye].adjustments = { ...defaultAdjustments };
             
-            slider.value = defaultAdjustments[adjustment];
-            const valueDisplay = slider.parentElement.querySelector('.adjustment-value');
-            if (valueDisplay) {
-                valueDisplay.textContent = defaultAdjustments[adjustment];
+            // Reset transform properties
+            imageSettings[eye].scale = 1;
+            imageSettings[eye].rotation = 0;
+            imageSettings[eye].translateX = 0;
+            imageSettings[eye].translateY = 0;
+            imageSettings[eye].skewX = 0;
+            imageSettings[eye].skewY = 0;
+            
+            // Reset auto-fit flag
+            imageSettings[eye].isAutoFitted = false;
+    
+            // Clear cached canvases
+            if (imageSettings[eye].offscreenCanvas) {
+                imageSettings[eye].offscreenCanvas = null;
+                imageSettings[eye].offscreenCtx = null;
+            }
+    
+            // Update UI sliders
+            Object.entries(adjustmentSliders).forEach(([adjustment, slider]) => {
+                if (!slider) return;
+                
+                // Update slider value
+                slider.value = 0;
+                
+                // Update value display
+                const valueDisplay = slider.parentElement?.querySelector('.adjustment-value');
+                if (valueDisplay) {
+                    valueDisplay.textContent = '0';
+                }
+            });
+    
+            // Clear any pending timeouts
+            if (imageSettings[eye].histogramTimeout) {
+                clearTimeout(imageSettings[eye].histogramTimeout);
+                imageSettings[eye].histogramTimeout = null;
+            }
+    
+            // Update canvas display
+            if (imageSettings[eye].canvas && imageSettings[eye].image) {
+                requestAnimationFrame(() => {
+                    updateCanvasTransform(eye);
+                    autoFitImage(imageSettings[eye]);
+                    updateCanvasImage(eye);
+                });
             }
         });
-
-        if (isDualViewActive) {
-            updateCanvasImage('L');
-            updateCanvasImage('R');
-        } else {
-            updateCanvasImage(currentEye);
-        }
+    
+        // Update histogram after reset
+        setTimeout(updateHistogram, 100);
     }
 
     function switchEye(eye) {
@@ -1127,6 +1175,7 @@ function applyShadowsHighlights(ctx, img, settings) {
 
         // Initialize gallery
         galleryAccordion.style.display = 'block';
+        
     }
 
     // Start the application
@@ -1169,7 +1218,9 @@ function applyShadowsHighlights(ctx, img, settings) {
         imageUpload.click();
     });
 
-    document.getElementById('resetAdjustments')?.addEventListener('click', resetAdjustments);
+    
+
+
 
     // Image transformation controls
     document.getElementById('rotateLeft')?.addEventListener('click', () => {
@@ -1229,29 +1280,13 @@ function applyShadowsHighlights(ctx, img, settings) {
     });
 
     // Movement controls
-    const moveImage = (direction) => {
-        const amount = 10;
-        if (isDualViewActive) {
-            ['L', 'R'].forEach(eye => {
-                const settings = imageSettings[eye];
-                switch(direction) {
-                    case 'up':
-                        settings.translateY -= amount;
-                        break;
-                    case 'down':
-                        settings.translateY += amount;
-                        break;
-                    case 'left':
-                        settings.translateX -= amount;
-                        break;
-                    case 'right':
-                        settings.translateX += amount;
-                        break;
-                }
-                updateCanvasTransform(eye);
-            });
-        } else {
-            const settings = imageSettings[currentEye];
+// Define movement function
+function moveImage(direction) {
+    const amount = 30;
+    if (isDualViewActive) {
+        ['L', 'R'].forEach(eye => {
+            const settings = imageSettings[eye];
+            if (!settings) return;
             switch(direction) {
                 case 'up':
                     settings.translateY -= amount;
@@ -1266,14 +1301,134 @@ function applyShadowsHighlights(ctx, img, settings) {
                     settings.translateX += amount;
                     break;
             }
-            updateCanvasTransform(currentEye);
+            updateCanvasTransform(eye);
+        });
+    } else {
+        const settings = imageSettings[currentEye];
+        if (!settings) return;
+        switch(direction) {
+            case 'up':
+                settings.translateY -= amount;
+                break;
+            case 'down':
+                settings.translateY += amount;
+                break;
+            case 'left':
+                settings.translateX -= amount;
+                break;
+            case 'right':
+                settings.translateX += amount;
+                break;
         }
-    };
+        updateCanvasTransform(currentEye);
+    }
+}
 
-    document.getElementById('moveUp')?.addEventListener('click', () => moveImage('up'));
-    document.getElementById('moveDown')?.addEventListener('click', () => moveImage('down'));
-    document.getElementById('moveLeft')?.addEventListener('click', () => moveImage('left'));
-    document.getElementById('moveRight')?.addEventListener('click', () => moveImage('right'));
+    // Setup movement controls in initialize function
+    function initialize() {
+        if (histogramCanvas) {
+            histogramCanvas.width = histogramCanvas.offsetWidth || 300;
+            histogramCanvas.height = histogramCanvas.offsetHeight || 150;
+        }
+
+        // Add this new section to your existing initialize function
+        const moveUp = document.getElementById('moveUp');
+        const moveDown = document.getElementById('moveDown');
+        const moveLeft = document.getElementById('moveLeft');
+        const moveRight = document.getElementById('moveRight');
+
+        if (moveUp) moveUp.onclick = () => moveImage('up');
+        if (moveDown) moveDown.onclick = () => moveImage('down');
+        if (moveLeft) moveLeft.onclick = () => moveImage('left');
+        if (moveRight) moveRight.onclick = () => moveImage('right');
+
+        // Rest of your existing initialize code
+        loadSVG(currentMap, 'L');
+        loadSVG(currentMap, 'R');
+        setupAdjustmentSliders();
+
+        controls.forEach(control => {
+            makeElementDraggable(control);
+        });
+            // Add transformation controls
+    const zoomIn = document.getElementById('zoomIn');
+    const zoomOut = document.getElementById('zoomOut');
+    const rotateLeft = document.getElementById('rotateLeft');
+    const rotateRight = document.getElementById('rotateRight');
+
+    // Zoom In
+    if(zoomIn) {
+        zoomIn.onclick = () => {
+            console.log('Zoom in clicked'); // Debug log
+            if (isDualViewActive) {
+                ['L', 'R'].forEach(eye => {
+                    let newScale = (imageSettings[eye].scale || 1) * 1.1;
+                    newScale = Math.min(newScale, 10);
+                    imageSettings[eye].scale = newScale;
+                    updateCanvasTransform(eye);
+                });
+            } else {
+                let newScale = (imageSettings[currentEye].scale || 1) * 1.1;
+                newScale = Math.min(newScale, 10);
+                imageSettings[currentEye].scale = newScale;
+                updateCanvasTransform(currentEye);
+            }
+        };
+    }
+
+    // Zoom Out
+    if(zoomOut) {
+        zoomOut.onclick = () => {
+            console.log('Zoom out clicked'); // Debug log
+            if (isDualViewActive) {
+                ['L', 'R'].forEach(eye => {
+                    let newScale = (imageSettings[eye].scale || 1) / 1.1;
+                    newScale = Math.max(newScale, 0.1);
+                    imageSettings[eye].scale = newScale;
+                    updateCanvasTransform(eye);
+                });
+            } else {
+                let newScale = (imageSettings[currentEye].scale || 1) / 1.1;
+                newScale = Math.max(newScale, 0.1);
+                imageSettings[currentEye].scale = newScale;
+                updateCanvasTransform(currentEye);
+            }
+        };
+    }
+
+    // Rotate Left
+    if(rotateLeft) {
+        rotateLeft.onclick = () => {
+            console.log('Rotate left clicked'); // Debug log
+            if (isDualViewActive) {
+                ['L', 'R'].forEach(eye => {
+                    imageSettings[eye].rotation -= 5;
+                    updateCanvasTransform(eye);
+                });
+            } else {
+                imageSettings[currentEye].rotation -= 5;
+                updateCanvasTransform(currentEye);
+            }
+        };
+    }
+
+    // Rotate Right
+    if(rotateRight) {
+        rotateRight.onclick = () => {
+            console.log('Rotate right clicked'); // Debug log
+            if (isDualViewActive) {
+                ['L', 'R'].forEach(eye => {
+                    imageSettings[eye].rotation += 5;
+                    updateCanvasTransform(eye);
+                });
+            } else {
+                imageSettings[currentEye].rotation += 5;
+                updateCanvasTransform(currentEye);
+            }
+        };
+    }
+    }
+    
 
     // Gallery Functions
     function addToGallery(imageDataUrl, name) {
@@ -1342,4 +1497,122 @@ function applyShadowsHighlights(ctx, img, settings) {
         img.src = imageDataUrl;
     }
 });
+
+function autoLevels() {
+    if (!histogramData) return;
+
+    const settings = isDualViewActive ? ['L', 'R'] : [currentEye];
+    
+    settings.forEach(eye => {
+        const adjustments = imageSettings[eye].adjustments;
+        const histogram = histogramData;
+
+        // Helper function for percentile calculation
+        function findPercentile(hist, percentile) {
+            const total = hist.reduce((a, b) => a + b, 0);
+            const target = total * (percentile / 100);
+            let sum = 0;
+            for (let i = 0; i < hist.length; i++) {
+                sum += hist[i];
+                if (sum >= target) return i;
+            }
+            return 255;
+        }
+
+        // Calculate weighted brightness with more emphasis on green channel
+        const totalPixels = histogram.red.reduce((a, b) => a + b, 0);
+        const weightedBrightness = (
+            histogram.red.reduce((sum, val, idx) => sum + val * idx, 0) * 0.3 +
+            histogram.green.reduce((sum, val, idx) => sum + val * idx, 0) * 0.5 +
+            histogram.blue.reduce((sum, val, idx) => sum + val * idx, 0) * 0.2
+        ) / totalPixels;
+
+        // Find significant boundaries for each channel
+        const blackPoint = Math.min(
+            findPercentile(histogram.red, 1),
+            findPercentile(histogram.green, 1),
+            findPercentile(histogram.blue, 1)
+        );
+
+        const whitePoint = Math.max(
+            findPercentile(histogram.red, 99),
+            findPercentile(histogram.green, 99),
+            findPercentile(histogram.blue, 99)
+        );
+
+        // Calculate balanced adjustments
+        const targetBrightness = 128;
+        const exposureAdjustment = ((targetBrightness - weightedBrightness) / targetBrightness) * 50;
+        
+        // Apply with limits
+        adjustments.exposure = Math.max(-50, Math.min(50, exposureAdjustment));
+
+        // Calculate contrast based on histogram spread
+        const contrastRange = whitePoint - blackPoint;
+        const targetRange = 220; // Desired range for good contrast
+        const contrastAdjustment = ((targetRange / contrastRange) - 1) * 30;
+        
+        // Apply with limits
+        adjustments.contrast = Math.max(-50, Math.min(50, contrastAdjustment));
+
+        // Update UI
+        if (adjustmentSliders.exposure) {
+            adjustmentSliders.exposure.value = adjustments.exposure;
+            adjustmentSliders.exposure.parentElement.querySelector('.adjustment-value').textContent = 
+                adjustments.exposure.toFixed(1);
+        }
+        
+        if (adjustmentSliders.contrast) {
+            adjustmentSliders.contrast.value = adjustments.contrast;
+            adjustmentSliders.contrast.parentElement.querySelector('.adjustment-value').textContent = 
+                adjustments.contrast.toFixed(1);
+        }
+
+        // Apply changes
+        updateCanvasImage(eye);
+    });
+}
+
+
+function applySharpness(ctx, amount) {
+    const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+    const pixels = imageData.data;
+    const width = ctx.canvas.width;
+    const height = ctx.canvas.height;
+    
+    // Create temp array
+    const temp = new Uint8ClampedArray(pixels.length);
+    temp.set(pixels);
+    
+    // Normalized amount
+    const strength = Math.min(Math.abs(amount) / 100, 1);
+    
+    // Kernel for sharpening
+    const kernel = [
+        0, -1 * strength, 0,
+        -1 * strength, 4 * strength + 1, -1 * strength,
+        0, -1 * strength, 0
+    ];
+    
+    // Apply convolution
+    for (let y = 1; y < height - 1; y++) {
+        for (let x = 1; x < width - 1; x++) {
+            const idx = (y * width + x) * 4;
+            
+            for (let c = 0; c < 3; c++) {
+                let val = 0;
+                for (let ky = -1; ky <= 1; ky++) {
+                    for (let kx = -1; kx <= 1; kx++) {
+                        const pidx = ((y + ky) * width + (x + kx)) * 4 + c;
+                        val += temp[pidx] * kernel[(ky + 1) * 3 + (kx + 1)];
+                    }
+                }
+                pixels[idx + c] = val;
+            }
+        }
+    }
+    
+    ctx.putImageData(imageData, 0, 0);
+}
+
 
