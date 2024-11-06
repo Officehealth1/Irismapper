@@ -36,29 +36,21 @@
     <button class="btn" id="selectMap">Select Map</button>
     <button class="btn" id="customMap">Custom Map</button>
     
-    <!-- Zoom Controls: Now Side by Side and Aligned -->
     <div class="zoom-controls">
-        <button class="btn" id="zoomIn">Zoom +</button>
-        <button class="btn" id="zoomOut">Zoom -</button>
+        <button class="btn zoom-btn" id="zoomIn">Zoom +</button>
+        <button class="btn zoom-btn" id="zoomOut">Zoom -</button>
     </div>
     
-    <!-- Rotation Buttons: Side by Side and Aligned -->
     <div class="rotation-buttons">
         <button class="btn" id="rotateLeft">↺</button>
         <button class="btn" id="rotateRight">↻</button>
     </div>
     
-    <!-- Direction Buttons: Centered -->
     <div class="direction-buttons">
-        <div></div>
         <button class="btn" id="moveUp">↑</button>
-        <div></div>
         <button class="btn" id="moveLeft">←</button>
-        <div></div>
         <button class="btn" id="moveRight">→</button>
-        <div></div>
         <button class="btn" id="moveDown">↓</button>
-        <div></div>
     </div>
 </div>
 
@@ -96,67 +88,46 @@
                 <div class="adjustment-group">
                     <div class="adjustment-row">
                         <span class="adjustment-label">Exposure</span>
-                        <div class="adjustment-control">
-                            <input type="range" class="adjustment-slider" id="exposureSlider" min="-100" max="100" value="0">
-                            <span class="adjustment-value">0</span>
-                        </div>
+                        <input type="range" class="adjustment-slider" id="exposureSlider" min="-100" max="100" value="0">
+                        <span class="adjustment-value">0</span>
                     </div>
                     <div class="adjustment-row">
                         <span class="adjustment-label">Contrast</span>
-                        <div class="adjustment-control">
-                            <input type="range" class="adjustment-slider" id="contrastSlider" min="-100" max="100" value="0">
-                            <span class="adjustment-value">0</span>
-                        </div>
+                        <input type="range" class="adjustment-slider" id="contrastSlider" min="-100" max="100" value="0">
+                        <span class="adjustment-value">0</span>
                     </div>
                     <div class="adjustment-row">
                         <span class="adjustment-label">Saturation</span>
-                        <div class="adjustment-control">
-                            <input type="range" class="adjustment-slider" id="saturationSlider" min="-100" max="100" value="0">
-                            <span class="adjustment-value">0</span>
-                        </div>
+                        <input type="range" class="adjustment-slider" id="saturationSlider" min="-100" max="100" value="0">
+                        <span class="adjustment-value">0</span>
                     </div>
                     <div class="adjustment-row">
                         <span class="adjustment-label">Hue</span>
-                        <div class="adjustment-control">
-                            <input type="range" class="adjustment-slider" id="hueSlider" min="-180" max="180" value="0">
-                            <span class="adjustment-value">0</span>
-                        </div>
+                        <input type="range" class="adjustment-slider" id="hueSlider" min="-180" max="180" value="0">
+                        <span class="adjustment-value">0</span>
                     </div>
                     <div class="adjustment-row">
                         <span class="adjustment-label">Shadows</span>
-                        <div class="adjustment-control">
-                            <input type="range" class="adjustment-slider" id="shadowsSlider" min="-100" max="100" value="0">
-                            <span class="adjustment-value">0</span>
-                        </div>
+                        <input type="range" class="adjustment-slider" id="shadowsSlider" min="-100" max="100" value="0">
+                        <span class="adjustment-value">0</span>
                     </div>
                     <div class="adjustment-row">
                         <span class="adjustment-label">Highlights</span>
-                        <div class="adjustment-control">
-                            <input type="range" class="adjustment-slider" id="highlightsSlider" min="-100" max="100" value="0">
-                            <span class="adjustment-value">0</span>
-                        </div>
+                        <input type="range" class="adjustment-slider" id="highlightsSlider" min="-100" max="100" value="0">
+                        <span class="adjustment-value">0</span>
                     </div>
                     <div class="adjustment-row">
                         <span class="adjustment-label">Temperature</span>
-                        <div class="adjustment-control">
-                            <input type="range" class="adjustment-slider" id="temperatureSlider" min="-100" max="100" value="0">
-                            <span class="adjustment-value">0</span>
-                        </div>
+                        <input type="range" class="adjustment-slider" id="temperatureSlider" min="-100" max="100" value="0">
+                        <span class="adjustment-value">0</span>
                     </div>
                     <div class="adjustment-row">
                         <span class="adjustment-label">Sharpness</span>
-                        <div class="adjustment-control">
-                            <input type="range" class="adjustment-slider" id="sharpnessSlider" min="0" max="100" value="0">
-                            <span class="adjustment-value">0</span>
-                        </div>
+                        <input type="range" class="adjustment-slider" id="sharpnessSlider" min="0" max="100" value="0">
+                        <span class="adjustment-value">0</span>
                     </div>
-                    <div class="adjustment-row">
-                        <span class="adjustment-label">Blur</span>
-                        <div class="adjustment-control">
-                            <input type="range" class="adjustment-slider" id="blurSlider" min="0" max="10" step="0.1" value="0">
-                            <span class="adjustment-value">0</span>
-                        </div>
-                    </div>
+                </div>
+                
                 </div>
             </div>
         </div>
