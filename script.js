@@ -1029,34 +1029,81 @@ document.addEventListener('DOMContentLoaded', function() {
             (eye === 'L' ? leftSvgContainer : rightSvgContainer) : svgContainer;
         
         if (!container) return;
-
-        const svgElements = container.querySelectorAll('svg path, svg line, svg circle, svg polygon, svg polyline, svg ellipse, svg rect, svg text');
-        svgElements.forEach(element => {
+    
+        // Get all SVG elements including nested ones
+        const allElements = container.getElementsByTagName('*');
+    
+        // Specific handling for IrisLAB map elements
+        for (let element of allElements) {
             const tag = element.tagName.toLowerCase();
-            // Define which tags should have fill modified
-            const fillModifiableTags = ['path', 'circle', 'polygon', 'ellipse', 'rect'];
             
-            // Modify stroke for all relevant elements
-            if (['path', 'line', 'circle', 'polygon', 'polyline', 'ellipse', 'rect'].includes(tag)) {
-                element.setAttribute('stroke', color);
+            // Handle text elements
+            if (tag === 'text' || tag === 'tspan') {
+                element.setAttribute('fill', color);
+                element.setAttribute('stroke', 'none'); // Prevent text outlines
+                continue;
             }
-
-            // Conditionally modify fill
-            if (fillModifiableTags.includes(tag)) {
-                // Check if the element already has a fill; modify only if necessary
+    
+            // Handle paths (anatomical sections and lines)
+            if (tag === 'path' || tag === 'line' || tag === 'circle') {
+                // Get the current stroke-width
+                const strokeWidth = element.getAttribute('stroke-width');
+                
+                // Set stroke color
+                element.setAttribute('stroke', color);
+                
+                // Ensure thin lines remain visible
+                if (strokeWidth === null || strokeWidth === '') {
+                    element.setAttribute('stroke-width', '0.5');
+                }
+    
+                // Only set fill for closed paths that originally had fill
                 const currentFill = element.getAttribute('fill');
                 if (currentFill && currentFill !== 'none') {
                     element.setAttribute('fill', color);
                 }
-                
+                continue;
             }
-            if (element.tagName.toLowerCase() === 'text') {
-                element.setAttribute('fill', color);
-              }
-              
-        });
-        
+    
+            // Handle groups
+            if (tag === 'g') {
+                // Check if group has direct style attributes
+                if (element.hasAttribute('stroke')) {
+                    element.setAttribute('stroke', color);
+                }
+                if (element.hasAttribute('fill')) {
+                    element.setAttribute('fill', color);
+                }
+                continue;
+            }
+    
+            // Handle other specific elements
+            if (['polygon', 'polyline', 'rect', 'ellipse'].includes(tag)) {
+                element.setAttribute('stroke', color);
+                // Check if element should have fill
+                const currentFill = element.getAttribute('fill');
+                if (currentFill && currentFill !== 'none') {
+                    element.setAttribute('fill', color);
+                }
+            }
+        }
+    
+        // Handle any CSS styles
+        const styleElement = container.querySelector('style');
+        if (styleElement) {
+            let cssText = styleElement.textContent;
+            // Replace all color definitions with new color
+            cssText = cssText.replace(/(?:rgb|rgba|#)[^;{}]*/g, color);
+            styleElement.textContent = cssText;
+        }
+    
+        // Store color in settings
         svgSettings[eye].mapColor = color;
+    
+        // Force repaint
+        container.style.display = 'none';
+        container.offsetHeight; // Trigger reflow
+        container.style.display = '';
     }
 
     // Auto Levels Functionality
@@ -1191,6 +1238,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 navItems.forEach(item => {
                     item.addEventListener('click', () => this.togglePanel(item.dataset.panel));
                 });
+                
             }
         
             handleTouchStart(e) {
@@ -1417,21 +1465,7 @@ document.addEventListener('DOMContentLoaded', function() {
             };
             reader.readAsDataURL(file);
         }
-    });
-
-    document.addEventListener('DOMContentLoaded', function() {
-        const addImageBtn = document.getElementById('addImageBtn');
-        const imageUpload = document.getElementById('imageUpload');
-        
-        if (addImageBtn && imageUpload) {
-            addImageBtn.addEventListener('click', () => imageUpload.click());
-        } else {
-            console.warn('Required elements not found: addImageBtn or imageUpload');
-        }
-    });
-
-    
-
+    });   
 
 
     // Image transformation controls
