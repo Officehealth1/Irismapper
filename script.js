@@ -35,7 +35,6 @@ document.addEventListener('DOMContentLoaded', function() {
         contrast: document.getElementById('contrastSlider'),
         saturation: document.getElementById('saturationSlider'),
         hue: document.getElementById('hueSlider'),
-        blur: document.getElementById('blurSlider'),
         shadows: document.getElementById('shadowsSlider'),
         highlights: document.getElementById('highlightsSlider'),
         temperature: document.getElementById('temperatureSlider'),
@@ -90,7 +89,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 contrast: 0,
                 saturation: 0,
                 hue: 0,
-                blur: 0,
                 shadows: 0,
                 highlights: 0,
                 temperature: 0,
@@ -102,6 +100,7 @@ document.addEventListener('DOMContentLoaded', function() {
             isAutoFitted: false
         };
     }
+    
 
     // Histogram Data
     let histogramData = null;
@@ -399,13 +398,11 @@ document.addEventListener('DOMContentLoaded', function() {
         // Only add conditional filters if needed
         if (settings.adjustments.temperature !== 0) {
             const temp = settings.adjustments.temperature;
-            filters.push(`sepia(${Math.abs(temp)}%)`);
-            filters.push(`hue-rotate(${temp > 0 ? 10 : -10}deg)`);
+            const warmFilter = temp > 0 ? `sepia(${temp}%)` : '';
+            const coolFilter = temp < 0 ? `hue-rotate(180deg) saturate(${Math.abs(temp)}%)` : '';
+            filters.push(warmFilter || coolFilter);
         }
     
-        if (settings.adjustments.blur !== 0) {
-            filters.push(`blur(${settings.adjustments.blur}px)`);
-        }
     
         offCtx.filter = filters.join(' ');
     
@@ -441,44 +438,45 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-function applyShadowsHighlights(ctx, img, settings) {
-    const width = img.naturalWidth;
-    const height = img.naturalHeight;
+    function applyShadowsHighlights(ctx, img, settings) {
+        const width = img.naturalWidth;
+        const height = img.naturalHeight;
+        
+        // Draw original image
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Get image data
+        const imageData = ctx.getImageData(0, 0, width, height);
+        const data = imageData.data;
     
-    // Draw original image
-    ctx.drawImage(img, 0, 0, width, height);
+        // Calculate adjustments
+        const shadows = settings.adjustments.shadows / 100;
+        const highlights = settings.adjustments.highlights / 100;
     
-    // Create temporary buffer only if needed
-    if (!settings.tempCanvas) {
-        settings.tempCanvas = new OffscreenCanvas(width, height);
-        settings.tempCtx = settings.tempCanvas.getContext('2d');
+        // Loop through pixels
+        for (let i = 0; i < data.length; i += 4) {
+            // Calculate luminance
+            const luminance = 0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2];
+    
+            if (luminance < 128) {
+                // Shadows adjustment
+                const factor = 1 + shadows;
+                data[i] *= factor;
+                data[i+1] *= factor;
+                data[i+2] *= factor;
+            } else {
+                // Highlights adjustment
+                const factor = 1 - highlights;
+                data[i] *= factor;
+                data[i+1] *= factor;
+                data[i+2] *= factor;
+            }
+        }
+    
+        // Put adjusted data back
+        ctx.putImageData(imageData, 0, 0);
     }
     
-    const tempCtx = settings.tempCtx;
-    const tempCanvas = settings.tempCanvas;
-
-    tempCtx.clearRect(0, 0, width, height);
-    tempCtx.drawImage(img, 0, 0);
-
-    // Shadows adjustment with improved algorithm
-    if (settings.adjustments.shadows !== 0) {
-        const shadowStrength = Math.min(Math.abs(settings.adjustments.shadows) / 100, 0.8);
-        tempCtx.globalCompositeOperation = 'multiply';
-        tempCtx.fillStyle = `rgba(0, 0, 0, ${shadowStrength})`;
-        tempCtx.fillRect(0, 0, width, height);
-    }
-
-    // Highlights adjustment with improved algorithm
-    if (settings.adjustments.highlights !== 0) {
-        const highlightStrength = Math.min(Math.abs(settings.adjustments.highlights) / 100, 0.8);
-        tempCtx.globalCompositeOperation = 'screen';
-        tempCtx.fillStyle = `rgba(255, 255, 255, ${highlightStrength})`;
-        tempCtx.fillRect(0, 0, width, height);
-    }
-
-    // Apply the adjusted image
-    ctx.drawImage(tempCanvas, 0, 0);
-}
     
 
     function rgbToHsl(r, g, b) {
@@ -646,7 +644,6 @@ function applyShadowsHighlights(ctx, img, settings) {
             contrast: 0,
             saturation: 0,
             hue: 0,
-            blur: 0,
             shadows: 0,
             highlights: 0,
             temperature: 0,
@@ -657,37 +654,24 @@ function applyShadowsHighlights(ctx, img, settings) {
         console.log('Resetting eyes:', eyesToReset); // Debug log
     
         eyesToReset.forEach(eye => {
-            // Reset adjustments
-            imageSettings[eye].adjustments = { ...defaultAdjustments };
-            
-            // Reset transform properties
-            imageSettings[eye].scale = 1;
-            imageSettings[eye].rotation = 0;
-            imageSettings[eye].translateX = 0;
-            imageSettings[eye].translateY = 0;
-            imageSettings[eye].skewX = 0;
-            imageSettings[eye].skewY = 0;
-            
-            // Reset auto-fit flag
-            imageSettings[eye].isAutoFitted = false;
-    
-            // Clear cached canvases
-            if (imageSettings[eye].offscreenCanvas) {
-                imageSettings[eye].offscreenCanvas = null;
-                imageSettings[eye].offscreenCtx = null;
-            }
+            // Reset only histogram-related adjustments
+            imageSettings[eye].adjustments = { 
+                ...imageSettings[eye].adjustments,
+                ...defaultAdjustments
+            };
     
             // Update UI sliders
             Object.entries(adjustmentSliders).forEach(([adjustment, slider]) => {
                 if (!slider) return;
                 
-                // Update slider value
-                slider.value = 0;
-                
-                // Update value display
-                const valueDisplay = slider.parentElement?.querySelector('.adjustment-value');
-                if (valueDisplay) {
-                    valueDisplay.textContent = '0';
+                // Only reset sliders that are in defaultAdjustments
+                if (defaultAdjustments.hasOwnProperty(adjustment)) {
+                    slider.value = 0;
+                    // Update value display
+                    const valueDisplay = slider.parentElement?.querySelector('.adjustment-value');
+                    if (valueDisplay) {
+                        valueDisplay.textContent = '0';
+                    }
                 }
             });
     
@@ -700,8 +684,6 @@ function applyShadowsHighlights(ctx, img, settings) {
             // Update canvas display
             if (imageSettings[eye].canvas && imageSettings[eye].image) {
                 requestAnimationFrame(() => {
-                    updateCanvasTransform(eye);
-                    autoFitImage(imageSettings[eye]);
                     updateCanvasImage(eye);
                 });
             }
@@ -710,6 +692,7 @@ function applyShadowsHighlights(ctx, img, settings) {
         // Update histogram after reset
         setTimeout(updateHistogram, 100);
     }
+    
 
     function switchEye(eye) {
         if (currentEye === eye) return;
@@ -1728,79 +1711,83 @@ function moveImage(direction) {
 });
 
 function autoLevels() {
-    if (!histogramData) return;
-
     const settings = isDualViewActive ? ['L', 'R'] : [currentEye];
-    
+
     settings.forEach(eye => {
         const adjustments = imageSettings[eye].adjustments;
-        const histogram = histogramData;
+        const canvas = imageSettings[eye].canvas;
+        const ctx = imageSettings[eye].context;
 
-        // Helper function for percentile calculation
-        function findPercentile(hist, percentile) {
-            const total = hist.reduce((a, b) => a + b, 0);
-            const target = total * (percentile / 100);
-            let sum = 0;
-            for (let i = 0; i < hist.length; i++) {
-                sum += hist[i];
-                if (sum >= target) return i;
-            }
-            return 255;
+        if (!canvas || !ctx) return;
+
+        // Get image data from the canvas
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+
+        // Calculate luminance histogram
+        const luminanceHistogram = new Uint32Array(256);
+        for (let i = 0; i < data.length; i += 4) {
+            const luminance = Math.round(0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2]);
+            luminanceHistogram[luminance]++;
         }
 
-        // Calculate weighted brightness with more emphasis on green channel
-        const totalPixels = histogram.red.reduce((a, b) => a + b, 0);
-        const weightedBrightness = (
-            histogram.red.reduce((sum, val, idx) => sum + val * idx, 0) * 0.3 +
-            histogram.green.reduce((sum, val, idx) => sum + val * idx, 0) * 0.5 +
-            histogram.blue.reduce((sum, val, idx) => sum + val * idx, 0) * 0.2
-        ) / totalPixels;
+        // Find cumulative distribution function (CDF)
+        const totalPixels = canvas.width * canvas.height;
+        const cdf = new Uint32Array(256);
+        cdf[0] = luminanceHistogram[0];
+        for (let i = 1; i < 256; i++) {
+            cdf[i] = cdf[i - 1] + luminanceHistogram[i];
+        }
 
-        // Find significant boundaries for each channel
-        const blackPoint = Math.min(
-            findPercentile(histogram.red, 1),
-            findPercentile(histogram.green, 1),
-            findPercentile(histogram.blue, 1)
-        );
+        // Calculate lower and upper bounds (e.g., 1% and 99% percentiles)
+        const lowerBound = totalPixels * 0.01;
+        const upperBound = totalPixels * 0.99;
 
-        const whitePoint = Math.max(
-            findPercentile(histogram.red, 99),
-            findPercentile(histogram.green, 99),
-            findPercentile(histogram.blue, 99)
-        );
+        let cdfMin = 0;
+        let cdfMax = 255;
 
-        // Calculate balanced adjustments
-        const targetBrightness = 128;
-        const exposureAdjustment = ((targetBrightness - weightedBrightness) / targetBrightness) * 50;
-        
-        // Apply with limits
-        adjustments.exposure = Math.max(-50, Math.min(50, exposureAdjustment));
+        for (let i = 0; i < 256; i++) {
+            if (cdf[i] > lowerBound) {
+                cdfMin = i;
+                break;
+            }
+        }
 
-        // Calculate contrast based on histogram spread
-        const contrastRange = whitePoint - blackPoint;
-        const targetRange = 220; // Desired range for good contrast
-        const contrastAdjustment = ((targetRange / contrastRange) - 1) * 30;
-        
-        // Apply with limits
-        adjustments.contrast = Math.max(-50, Math.min(50, contrastAdjustment));
+        for (let i = 255; i >= 0; i--) {
+            if (cdf[i] < upperBound) {
+                cdfMax = i;
+                break;
+            }
+        }
 
-        // Update UI
+        // Calculate exposure and contrast adjustments
+        const brightnessRange = cdfMax - cdfMin;
+        const desiredRange = 220; // Target brightness range
+        const contrastAdjustment = ((desiredRange / brightnessRange) - 1) * 100;
+        const exposureAdjustment = ((128 - (cdfMin + cdfMax) / 2) / 128) * 100;
+
+        adjustments.contrast = Math.max(-100, Math.min(100, contrastAdjustment));
+        adjustments.exposure = Math.max(-100, Math.min(100, exposureAdjustment));
+
+        // Update UI sliders
         if (adjustmentSliders.exposure) {
             adjustmentSliders.exposure.value = adjustments.exposure;
-            adjustmentSliders.exposure.parentElement.querySelector('.adjustment-value').textContent = 
-                adjustments.exposure.toFixed(1);
-        }
-        
-        if (adjustmentSliders.contrast) {
-            adjustmentSliders.contrast.value = adjustments.contrast;
-            adjustmentSliders.contrast.parentElement.querySelector('.adjustment-value').textContent = 
-                adjustments.contrast.toFixed(1);
+            adjustmentSliders.exposure.parentElement.querySelector('.adjustment-value').textContent = adjustments.exposure.toFixed(0);
         }
 
-        // Apply changes
+        if (adjustmentSliders.contrast) {
+            adjustmentSliders.contrast.value = adjustments.contrast;
+            adjustmentSliders.contrast.parentElement.querySelector('.adjustment-value').textContent = adjustments.contrast.toFixed(0);
+        }
+
+        // Apply adjustments
         updateCanvasImage(eye);
     });
+
+    // Update histogram after auto levels
+    setTimeout(updateHistogram, 100);
 }
+
 
 
 function applySharpness(ctx, amount) {
@@ -1808,40 +1795,61 @@ function applySharpness(ctx, amount) {
     const pixels = imageData.data;
     const width = ctx.canvas.width;
     const height = ctx.canvas.height;
-    
+
     // Create temp array
     const temp = new Uint8ClampedArray(pixels.length);
     temp.set(pixels);
-    
+
     // Normalized amount
-    const strength = Math.min(Math.abs(amount) / 100, 1);
-    
-    // Kernel for sharpening
+    const strength = amount / 100;
+
+    // Enhanced kernel for sharpening
     const kernel = [
         0, -1 * strength, 0,
         -1 * strength, 4 * strength + 1, -1 * strength,
         0, -1 * strength, 0
     ];
-    
-    // Apply convolution
-    for (let y = 1; y < height - 1; y++) {
-        for (let x = 1; x < width - 1; x++) {
-            const idx = (y * width + x) * 4;
-            
-            for (let c = 0; c < 3; c++) {
-                let val = 0;
-                for (let ky = -1; ky <= 1; ky++) {
-                    for (let kx = -1; kx <= 1; kx++) {
-                        const pidx = ((y + ky) * width + (x + kx)) * 4 + c;
-                        val += temp[pidx] * kernel[(ky + 1) * 3 + (kx + 1)];
-                    }
-                }
-                pixels[idx + c] = val;
-            }
-        }
-    }
-    
+
+    // Apply convolution (optimized)
+    convolve(temp, pixels, width, height, kernel);
+
     ctx.putImageData(imageData, 0, 0);
 }
+
+function convolve(src, dst, width, height, kernel) {
+    const side = Math.round(Math.sqrt(kernel.length));
+    const halfSide = Math.floor(side / 2);
+    const alphaFac = 1;
+
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            let sy = y;
+            let sx = x;
+            let dstOff = (y * width + x) * 4;
+            let r = 0, g = 0, b = 0, a = 0;
+
+            for (let cy = 0; cy < side; cy++) {
+                for (let cx = 0; cx < side; cx++) {
+                    let scy = sy + cy - halfSide;
+                    let scx = sx + cx - halfSide;
+                    if (scy >= 0 && scy < height && scx >= 0 && scx < width) {
+                        let srcOff = (scy * width + scx) * 4;
+                        let wt = kernel[cy * side + cx];
+
+                        r += src[srcOff] * wt;
+                        g += src[srcOff + 1] * wt;
+                        b += src[srcOff + 2] * wt;
+                        a += src[srcOff + 3] * wt;
+                    }
+                }
+            }
+            dst[dstOff] = Math.min(Math.max(r, 0), 255);
+            dst[dstOff + 1] = Math.min(Math.max(g, 0), 255);
+            dst[dstOff + 2] = Math.min(Math.max(b, 0), 255);
+            dst[dstOff + 3] = Math.min(Math.max(a, 0), 255);
+        }
+    }
+}
+
 
 
