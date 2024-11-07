@@ -40,6 +40,99 @@ document.addEventListener('DOMContentLoaded', function() {
         temperature: document.getElementById('temperatureSlider'),
         sharpness: document.getElementById('sharpnessSlider')
     };
+    // Image Analysis Functions
+function analyzeImageData(ctx, width, height) {
+    try {
+        const imageData = ctx.getImageData(0, 0, width, height);
+        const data = imageData.data;
+        const totalPixels = width * height;
+
+        // Initialize analysis arrays
+        const histogramR = new Uint32Array(256).fill(0);
+        const histogramG = new Uint32Array(256).fill(0);
+        const histogramB = new Uint32Array(256).fill(0);
+        const luminanceHist = new Uint32Array(256).fill(0);
+        
+        const colorCast = { r: 0, g: 0, b: 0 };
+        let totalBrightness = 0;
+        const contrastRange = { min: 255, max: 0 };
+
+        // Single pass analysis
+        for (let i = 0; i < data.length; i += 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+
+            // Update histograms
+            histogramR[r]++;
+            histogramG[g]++;
+            histogramB[b]++;
+
+            // Calculate luminance
+            const luminance = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+            luminanceHist[luminance]++;
+            totalBrightness += luminance;
+
+            // Track contrast range
+            contrastRange.min = Math.min(contrastRange.min, luminance);
+            contrastRange.max = Math.max(contrastRange.max, luminance);
+
+            // Accumulate color cast info
+            colorCast.r += r;
+            colorCast.g += g;
+            colorCast.b += b;
+        }
+
+        // Calculate averages
+        colorCast.r /= totalPixels;
+        colorCast.g /= totalPixels;
+        colorCast.b /= totalPixels;
+        const avgBrightness = totalBrightness / totalPixels;
+
+        // Calculate cumulative distribution
+        const cdf = calculateCDF(luminanceHist, totalPixels);
+
+        return {
+            histograms: {
+                r: histogramR,
+                g: histogramG,
+                b: histogramB,
+                luminance: luminanceHist,
+                red: histogramR,
+                green: histogramG,
+                blue: histogramB
+            },
+            colorCast,
+            avgBrightness,
+            contrastRange,
+            cdf
+        };
+    } catch (error) {
+        console.error('Error in analyzeImageData:', error);
+        return null;
+    }
+}
+
+function calculateCDF(histogram, totalPixels) {
+    const cdf = new Uint32Array(256);
+    let accumulator = 0;
+
+    for (let i = 0; i < 256; i++) {
+        accumulator += histogram[i];
+        cdf[i] = (accumulator / totalPixels) * 255;
+    }
+
+    return cdf;
+}
+
+// Helper function for finding percentile points
+function findPercentilePoint(cdf, percentile) {
+    const targetValue = percentile * 255;
+    for (let i = 0; i < cdf.length; i++) {
+        if (cdf[i] >= targetValue) return i;
+    }
+    return 255;
+}
 
     // State Management
     let currentEye = 'L';
@@ -105,29 +198,19 @@ document.addEventListener('DOMContentLoaded', function() {
     // Histogram Data
     let histogramData = null;
 
-    function updateHistogram() {
-        const settings = isDualViewActive ? imageSettings['L'] : imageSettings[currentEye];
-        if (!settings.canvas) return;
+function updateHistogram() {
+    const settings = isDualViewActive ? imageSettings['L'] : imageSettings[currentEye];
+    if (!settings.canvas) return;
 
-        const canvas = settings.canvas;
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const ctx = settings.canvas.getContext('2d', { willReadFrequently: true });
+    const analysis = analyzeImageData(ctx, settings.canvas.width, settings.canvas.height);
 
-        const data = imageData.data;
-        const length = data.length;
-        const histogramR = new Uint32Array(256);
-        const histogramG = new Uint32Array(256);
-        const histogramB = new Uint32Array(256);
+    // Store histogram data globally
+    histogramData = analysis.histograms;
 
-        for (let i = 0; i < length; i += 4) {
-            histogramR[data[i]]++;
-            histogramG[data[i + 1]]++;
-            histogramB[data[i + 2]]++;
-        }
-
-        histogramData = { red: histogramR, green: histogramG, blue: histogramB };
-        drawHistogram(histogramData);
-    }
+    // Draw updated histogram
+    drawHistogram(analysis.histograms);
+}
 
     function drawHistogram(histogramData) {
         const width = histogramCanvas.width;
@@ -1106,48 +1189,73 @@ document.addEventListener('DOMContentLoaded', function() {
         container.style.display = '';
     }
 
-    // Auto Levels Functionality
-    document.getElementById('autoLevels')?.addEventListener('click', () => {
-        if (!histogramData) return;
-
+// Auto Levels Functionality
+document.getElementById('autoLevels')?.addEventListener('click', () => {
+    try {
+        console.log('Auto Levels clicked');
         const settings = isDualViewActive ? ['L', 'R'] : [currentEye];
+        
         settings.forEach(eye => {
+            const canvas = imageSettings[eye].canvas;
+            const ctx = imageSettings[eye].context;
+            
+            if (!canvas || !ctx) {
+                console.log('No canvas or context for eye:', eye);
+                return;
+            }
+
+            const analysis = analyzeImageData(ctx, canvas.width, canvas.height);
+            if (!analysis) {
+                console.log('No analysis data available for eye:', eye);
+                return;
+            }
+
             const adjustments = imageSettings[eye].adjustments;
-            const histogram = histogramData;
 
-            // Calculate mean brightness
-            const totalPixels = histogram.red.reduce((a, b) => a + b, 0);
-            const meanBrightness = (histogram.red.reduce((sum, val, idx) => sum + val * idx, 0) +
-                histogram.green.reduce((sum, val, idx) => sum + val * idx, 0) +
-                histogram.blue.reduce((sum, val, idx) => sum + val * idx, 0)) / (totalPixels * 3);
+            // Calculate adjustments
+            if (analysis.avgBrightness < 85) {
+                adjustments.exposure = Math.min(((100 - analysis.avgBrightness) / 100) * 70, 70);
+                adjustments.shadows = Math.min(((80 - analysis.avgBrightness) / 80) * 60, 60);
+            } else if (analysis.avgBrightness > 170) {
+                adjustments.exposure = -Math.min(((analysis.avgBrightness - 155) / 100) * 50, 50);
+                adjustments.highlights = Math.min(((analysis.avgBrightness - 155) / 100) * 60, 60);
+            } else {
+                adjustments.exposure = ((128 - analysis.avgBrightness) / 128) * 50;
+            }
 
-            // Adjust exposure based on mean brightness
-            adjustments.exposure = (128 - meanBrightness) / 128 * 100;
+            const currentRange = analysis.contrastRange.max - analysis.contrastRange.min;
+            adjustments.contrast = currentRange < 100 ? 
+                Math.min(((180 / currentRange) - 1) * 70, 70) :
+                currentRange > 200 ?
+                    -Math.min(((currentRange / 180) - 1) * 30, 30) :
+                    ((180 / currentRange) - 1) * 40;
 
-            // Adjust contrast based on histogram spread
-            const minBrightness = Math.min(
-                histogram.red.findIndex(val => val > 0),
-                histogram.green.findIndex(val => val > 0),
-                histogram.blue.findIndex(val => val > 0)
-            );
-            const maxBrightness = Math.max(
-                255 - [...histogram.red].reverse().findIndex(val => val > 0),
-                255 - [...histogram.green].reverse().findIndex(val => val > 0),
-                255 - [...histogram.blue].reverse().findIndex(val => val > 0)
-            );
-            const brightnessRange = maxBrightness - minBrightness;
+            // Update UI sliders
+            Object.entries(adjustments).forEach(([adjustment, value]) => {
+                const slider = adjustmentSliders[adjustment];
+                if (!slider) return;
+                
+                const limitedValue = Math.max(-100, Math.min(100, value));
+                slider.value = limitedValue;
+                const valueDisplay = slider.parentElement?.querySelector('.adjustment-value');
+                if (valueDisplay) {
+                    valueDisplay.textContent = limitedValue.toFixed(1);
+                }
+                adjustments[adjustment] = limitedValue;
+            });
 
-            adjustments.contrast = ((255 / brightnessRange) - 1) * 100;
-
-            // Update sliders and images
-            adjustmentSliders.exposure.value = adjustments.exposure;
-            adjustmentSliders.contrast.value = adjustments.contrast;
-            adjustmentSliders.exposure.parentElement.querySelector('.adjustment-value').textContent = adjustments.exposure.toFixed(0);
-            adjustmentSliders.contrast.parentElement.querySelector('.adjustment-value').textContent = adjustments.contrast.toFixed(0);
-
-            updateCanvasImage(eye);
+            // Update canvas
+            requestAnimationFrame(() => {
+                updateCanvasImage(eye);
+            });
         });
-    });
+
+        // Update histogram after all adjustments
+        setTimeout(updateHistogram, 100);
+    } catch (error) {
+        console.error('Error in autoLevels:', error);
+    }
+});
 
     // Utility functions
     function debounce(func, wait) {
